@@ -242,10 +242,9 @@ public class SimpleCharStream
   public SimpleCharStream(java.io.Reader dstream, int startline,
   int startcolumn, int buffersize)
   {
-    if (inputStream != null)
-       throw new Error("\n   ERROR: Second call to the constructor of a static SimpleCharStream.  You must\n" +
-       "       either use ReInit() or set the JavaCC option STATIC to false\n" +
-       "       during the generation of this class.");
+    if (inputStream != null) {
+        ReInit(dstream);
+    }
     inputStream = dstream;
     line = startline;
     column = startcolumn - 1;

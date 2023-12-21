@@ -3,8 +3,8 @@
 //
 
 package dfta.parser.visitor;
+
 import dfta.parser.syntaxtree.*;
-import java.util.*;
 
 /**
  * All GJ void visitors must implement this interface.

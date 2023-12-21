@@ -1,907 +1,506 @@
 package dfta;
 
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.LinkedHashMap;
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.io.PrintStream;
-import javax.swing.JTextArea;
+import dfta.parser.TAModel;
 
-public class DeterminiserOpt implements Determiniser {
+import java.util.*;
 
-   Indices idx;
-   String ftaId;
+public class DeterminiserOpt {
+    // region preamble
+    final LinkedHashSet<LinkedHashSet<String>> qd;
+    final ArrayList<PTransition> deltad;
+    final LinkedHashMap<FuncSymb, ArrayList<LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>>>> t_inverse_table;
+    final IndicesB idx;
+    final IndicesA indices_a;
 
-   LinkedHashSet<LinkedHashSet<String>> qd = new LinkedHashSet<>();
-   ArrayList<PTransition> deltad = new ArrayList<>();
+    public DeterminiserOpt(IndicesB idx, IndicesA idx_a) {
+        this.idx = idx;
+        this.indices_a = idx_a;
+        deltad = new ArrayList<>();
+        qd = new LinkedHashSet<>();
+        t_inverse_table = new LinkedHashMap<>();
+    }
+    // endregion
 
-   LinkedHashMap<FuncSymb, ArrayList<LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>>>> t_inverse_table;
-   LinkedHashMap<FuncSymb, ArrayList<LinkedHashSet<BitSet>>> psi
-           = new LinkedHashMap<>();
-   LinkedHashMap<FuncSymb, ArrayList<BitSet>> psi_glb;
-
-   boolean dontCare = true;
-   boolean any = false;
-   boolean includesCheck = false;
-   boolean verbose;
-
-   LinkedHashSet<String> q1;  //  final states of FTA 1
-   LinkedHashSet<String> q2;  //  final states of FTA 2 
-
-   LinkedHashMap<FuncSymb, LinkedHashMap<Integer, ArrayList<ArrayList<Integer>>>> exprMap = new LinkedHashMap<>();
-   LinkedHashMap<FuncSymb, LinkedHashSet<Integer>> constMap = new LinkedHashMap<>();
-   LinkedHashMap<String, Integer> qIdxInv = new LinkedHashMap<>();
-
-   public DeterminiserOpt(String ftaId, LinkedHashSet transitions, LinkedHashSet finalStates, boolean any, boolean dontCare, boolean verbose) {
-      this.verbose = verbose;
-      this.psi_glb = new LinkedHashMap<>();
-      this.t_inverse_table = new LinkedHashMap<>();
-      this.ftaId = ftaId;
-      idx = new Indices(transitions, finalStates);
-      this.any = any;
-      this.dontCare = dontCare;
-      includesCheck = false;
-
-   }
-
-   @Override
-   public void makeDfta() {
-      idx.genDelta(ftaId);
-      idx.genFinalStates(ftaId);
-      if (any) {
-         idx.genDeltaAny();
-      }
-      idx.buildIndices();
-      //idx.showIndices();
-      dftaStates();
-      if (verbose) {
-         System.out.println("Made states");
-      }
-      dftaTransitions();
-
-      /*ArrayList<LinkedHashSet<LinkedHashSet<String>>> qmin = minimize();
-      System.out.println(qmin);
-      System.out.println("Size of Q_d = " + qd.size() + ": Size of Qmin = " + qmin.size());
-*/
-   }
-
-   public boolean dftaStates() {
-      if (verbose) {
-         System.out.println("Building DFTA states...");
-      }
-      Iterator iter;
-      int temp, z;
-      LinkedHashSet<String> q0;
-      FuncSymb f;
-      ArrayList<LinkedHashSet<BitSet>> phi_f, psi_f;
-      LinkedHashSet<BitSet> phi_f_j;
-      ArrayList<ArrayList<BitSet>> psi_phi_tuple;
-      ArrayList<BitSet> deltatuple;
-      ArrayList<BitSet> newtrs = new ArrayList<>();
-
-      LinkedHashMap<FuncSymb, ArrayList<LinkedHashSet<BitSet>>> phi
-              = new LinkedHashMap<>();
-
-      LinkedHashSet<LinkedHashSet<String>> qdnew, qdold, qdnew1;
-
-      iter = idx.sigma.iterator();
-      while (iter.hasNext()) {
-         f = (FuncSymb) iter.next();
-         if (f.arity == 0) {
-            q0 = rhsSet(idx.fIndex.get(f));
-            if (!q0.isEmpty()) {
-               qd.add(q0);
-               if (includesCheck) {
-                  if (!inclusionCheckState(q0, q1, q2)) {
-                     return false;
-                  }
-               }
-            }
-         }
-      }
-      // Initialise Psi_1 ... Psi_n and Phi_1 ... Phi_n for each f/n
-      // Initialise the t_inverse_table
-      iter = idx.sigma.iterator();
-      while (iter.hasNext()) {
-         f = (FuncSymb) iter.next();
-         if (f.arity > 0) {
-
-            psi_glb.put(f, new ArrayList<>());
-            psi_f = new ArrayList<>(f.arity);
-            phi_f = new ArrayList<>(f.arity);
-            t_inverse_table.put(f, new ArrayList<>());
-            for (int j = 0; j < f.arity; j++) {
-               psi_f.add(j, new LinkedHashSet<>());
-               phi_f.add(j, new LinkedHashSet<>());
-               t_inverse_table.get(f).add(j, new LinkedHashMap<>());
-               psi_glb.get(f).add(j, new BitSet(idx.delta.size()));
-            }
-            psi.put(f, psi_f);
-            phi.put(f, phi_f);
-         }
-      }
-
-      qdnew = (LinkedHashSet<LinkedHashSet<String>>) qd.clone();
-      deltatuple = new ArrayList<>();
-      psi_phi_tuple = new ArrayList<>();
-
-      qdnew1 = new LinkedHashSet<>();
-
-      // Compute DFTA States - main loop
-      do {
-         qdnew1.clear();
-         iter = idx.sigma.iterator();
-         while (iter.hasNext()) {
-            f = (FuncSymb) iter.next();
-            //System.out.println(f);
-            psi_f = psi.get(f);
-            phi_f = phi.get(f);
-
-            if (f.arity > 0) {  // initialise the Phi and Psi tuples
-               Iterator l;
-               for (int j = 0; j < f.arity; j++) {
-                  phi_f_j = t(j, f, qdnew);
-                  phi_f_j.removeAll(psi_f.get(j));  // remove sets already computed for jth argument
-                  phi_f.set(j, phi_f_j);
-
-                  l = phi_f_j.iterator();
-               }
-               for (int j = 0; j < f.arity; j++) {
-                  if (phi_f.get(j).size() > 0) { // if size of phi_f[j] = 0 then prod will be 0
-                     psi_phi_tuple.clear();
-                     for (int k = 0; k < f.arity; k++) {
-                        if (k < j) {
-                           psi_phi_tuple.add(k, new ArrayList<>(psi_f.get(k)));
-                        } else if (k == j) {
-                           psi_phi_tuple.add(k, new ArrayList<>(phi_f.get(j)));
-                        } else {
-                           psi_phi_tuple.add(k, new ArrayList<>(phi_f.get(k)));
-                           psi_phi_tuple.get(k).addAll(psi_f.get(k));
+    // region solver
+    public boolean makeDfta(boolean states_only, boolean dont_care, IncludesProps includes) {
+        // region prepare
+        final LinkedHashMap<FuncSymb, ArrayList<LinkedHashSet<BitSet>>> psi = new LinkedHashMap<>();
+        final LinkedHashMap<FuncSymb, ArrayList<BitSet>> psi_glb = new LinkedHashMap<>();
+        final boolean result;
+        // endregion
+        // region states
+        outer: for(;;) {
+            // region init
+            final LinkedHashMap<FuncSymb, ArrayList<LinkedHashSet<BitSet>>> phi = new LinkedHashMap<>();
+            for (final FuncSymb f : indices_a.constructors) {
+                if (f.arity == 0) {
+                    final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(idx, idx.f_index.get(f));
+                    if (!q0.isEmpty()) {
+                        qd.add(q0);
+                        // region includes check
+                        if (includes != null) {
+                            if (!inclusionCheckState(q0, includes.q1, includes.q2)) {
+                                result = false;
+                                break outer;
+                            }
                         }
-                     }
-
-                     int prod = 1;
-                     for (int k = 0; k < f.arity; k++) {
-                        prod = prod * psi_phi_tuple.get(k).size();
-                     }
-                     //System.out.println(prod);
-                     for (int k = 0; k < prod; k++) { // enumerate the delta-tuples (cartesian product)
-                        temp = k;
-                        // Re-initialise delta-tuple
-                        deltatuple.clear();
-                        for (int m = 0; m < f.arity; m++) {
-                           z = psi_phi_tuple.get(m).size();
-                           deltatuple.add(m, psi_phi_tuple.get(m).get(temp % z));
-                           temp = temp / z;
-                        }
-                        q0 = rhsSet(intersect(deltatuple));
-                        if (!q0.isEmpty()) {
-                           if (qd.add(q0)) {
-                              qdnew1.add(q0);
-                              //System.out.print("*("+q0.size()+")");  // new element
-                              if (includesCheck) {
-                                 if (!inclusionCheckState(q0, q1, q2)) {
-                                    return false;
-                                 }
-                              }
-                           }
-                        }
-                        //else System.out.print("-("+q0.size()+")");  // duplicate
-                        //else
-                        //System.out.print(".");  // empty set
-                     }
-
-                  }
-               }
-               for (int j = 0; j < f.arity; j++) {
-                  psi_f.get(j).addAll(phi_f.get(j));
-                  //System.out.print(psi_f.get(j).size()+", ");
-               }
-               //System.out.println();
+                        // endregion
+                    }
+                } else {
+                    // Initialise Psi_1 ... Psi_n and Phi_1 ... Phi_n for each f/n.
+                    // Initialise the t_inverse_table.
+                    psi_glb.put(f, new ArrayList<>());
+                    final ArrayList<LinkedHashSet<BitSet>> psi_f = new ArrayList<>(f.arity);
+                    final ArrayList<LinkedHashSet<BitSet>> phi_f = new ArrayList<>(f.arity);
+                    t_inverse_table.put(f, new ArrayList<>());
+                    for (int j = 0; j < f.arity; j++) {
+                        psi_f.add(j, new LinkedHashSet<>());
+                        phi_f.add(j, new LinkedHashSet<>());
+                        t_inverse_table.get(f).add(j, new LinkedHashMap<>());
+                        psi_glb.get(f).add(j, new BitSet(indices_a.transitions.size()));
+                    }
+                    psi.put(f, psi_f);
+                    phi.put(f, phi_f);
+                }
             }
-         }
-         qdnew.clear();
-         qdnew.addAll(qdnew1);
-         if (verbose) {
-            System.out.println("Qdnew: " + qdnew.size());
-         }
-      } while (!qdnew.isEmpty());
-      return true;
-   }
-
-   void dftaTransitions() {
-      if (verbose) {
-         System.out.println("Building DFTA product transitions...");
-      }
-      Iterator i = idx.sigma.iterator();
-      FuncSymb f;
-      LinkedHashSet<String> q0;
-      ArrayList<ArrayList<BitSet>> psi_tuple;
-      ArrayList<BitSet> deltatuple;
-      ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs;
-      int temp, z;
-
-      // make a hashmap yielding canonical names for the elements of qd
-      LinkedHashMap<LinkedHashSet<String>, LinkedHashSet<String>> qdnames = new LinkedHashMap<>();
-      Iterator qdi = qd.iterator();
-      while (qdi.hasNext()) {
-         q0 = (LinkedHashSet<String>) qdi.next();
-         qdnames.put(q0, q0);
-      }
-
-      while (i.hasNext()) {
-         f = (FuncSymb) i.next();
-         if (f.arity == 0) {
-            q0 = rhsSet(idx.fIndex.get(f));
-            if (!q0.isEmpty()) {
-               deltad.add(new PTransition(f, qdnames.get(q0)));
-            }
-         } else {
-            //psi_reinit(f);
-            psi_tuple = new ArrayList<>();
-            // Initialise delta-tuple and psi-tuple
-            deltatuple = new ArrayList<>();
-            for (int j = 0; j < f.arity; j++) {
-               psi_tuple.add(j, new ArrayList<>(psi.get(f).get(j)));
-               deltatuple.add(j, new BitSet(idx.delta.size()));
-            }
-            // check for don't care arguments for functions of arity > 1
-            // remove such arguments from the psi-tuple
-            if (f.arity > 1 && dontCare) {
-               dontCareArgs(psi_tuple, f);
-            }
-            int prod = 1;
-            for (int j = 0; j < f.arity; j++) {
-               prod = prod * psi_tuple.get(j).size();
-            }
-            if (verbose) {
-               System.out.println("Computing transitions for " + f);
-            }
-            for (int j = 0; j < prod; j++) { // enumerate the delta-tuples
-               temp = j;
-               for (int k = 0; k < f.arity; k++) {
-                  z = psi_tuple.get(k).size();
-                  deltatuple.set(k, psi_tuple.get(k).get(temp % z));
-                  temp = temp / z;
-               }
-
-               q0 = rhsSet(intersect(deltatuple));
-
-               if (!q0.isEmpty()) {
-                  lhs = new ArrayList<>();
-                  for (int m = 0; m < f.arity; m++) {
-                     lhs.add(m, t_inverse_table.get(f).get(m).get(deltatuple.get(m)));
-                  }
-                  deltad.add(new PTransition(f, qdnames.get(q0), lhs));
-               }
-            }
-         }
-      }
-   }
-
-   LinkedHashSet<String> rhsSet(BitSet tSet) {
-      FTATransition t;
-      LinkedHashSet<String> result = new LinkedHashSet<>();
-      for (int i = tSet.nextSetBit(0); i >= 0; i = tSet.nextSetBit(i + 1)) {
-         t = idx.tindex.get(i + 1);
-         result.add(t.q0);
-      }
-      return result;
-   }
-
-   BitSet intersect(ArrayList<BitSet> d) {
-      BitSet result = (BitSet) d.get(0).clone();
-      for (int i = 1; i < d.size(); i++) {
-         result.and(d.get(i));
-      }
-      return result;
-   }
-
-   LinkedHashSet<BitSet> t(int i, FuncSymb f, LinkedHashSet<LinkedHashSet<String>> qss) {
-      Iterator k = qss.iterator();
-      LinkedHashSet<BitSet> result = new LinkedHashSet<>();
-      LinkedHashSet<String> qs;
-      BitSet h;
-      while (k.hasNext()) {
-         qs = (LinkedHashSet<String>) k.next();
-         h = lhsSet(i, f, qs);
-         if (!h.isEmpty()) {
-            result.add(h);
-         }
-      }
-      return result;
-   }
-
-   BitSet lhsSet(int i, FuncSymb f, LinkedHashSet<String> qs) {
-      Iterator k = qs.iterator();
-      BitSet result = new BitSet(idx.delta.size());
-      LinkedHashMap<String, BitSet> lhsmap = idx.lhsf.get(f).get(i);
-      String q;
-      while (k.hasNext()) {
-         q = (String) k.next();
-         if (lhsmap.containsKey(q)) {
-            result.or(lhsmap.get(q));
-         }
-      }
-      // Tabulate result for the t_inverse function
-      if (!result.isEmpty()) {
-         LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>> hm = t_inverse_table.get(f).get(i);
-         if (!hm.containsKey(result)) {
-            hm.put(result, new LinkedHashSet<>());
-         }
-         hm.get(result).add(qs);
-      }
-      return result;
-   }
-
-   void dontCareArgs(ArrayList<ArrayList<BitSet>> psi_tuple, FuncSymb f) {
-      LinkedHashSet<LinkedHashSet<String>> qs;
-      ArrayList<BitSet> psiIntersectTuple = new ArrayList<>();
-      BitSet ts;
-      ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs;
-      LinkedHashSet<String> rhs;
-      BitSet temp;
-      BitSet deltaj;
-      ArrayList<LinkedHashSet<BitSet>> dontCares = new ArrayList<>();
-
-      // Intersect elements of psi-tuple and initialise don't-care array
-      for (int i = 0; i < f.arity; i++) {
-         if (!psi_tuple.get(i).isEmpty()) {
-            psiIntersectTuple.add(i, intersect(psi_tuple.get(i)));
-         } else {
-            psiIntersectTuple.add(i, new BitSet(idx.delta.size()));
-         }
-         dontCares.add(i, new LinkedHashSet<>());
-      }
-
-      for (int i = 0; i < f.arity; i++) {
-         temp = psiIntersectTuple.get(i);
-         for (int j = 0; j < psi_tuple.get(i).size(); j++) {
-            deltaj = psi_tuple.get(i).get(j);
-            psiIntersectTuple.set(i, deltaj);
-            rhs = rhsSet(deltaj);
-            if (rhs.equals(rhsSet(intersect(psiIntersectTuple)))) {
-               // generate a don't care transition
-               lhs = new ArrayList<>();
-               for (int k = 0; k < f.arity; k++) {
-                  lhs.add(k, new LinkedHashSet<>());
-                  if (k == i) {
-                     lhs.set(k, t_inverse_table.get(f).get(i).get(deltaj));
-                  }
-               }
-               deltad.add(new PTransition(f, rhs, lhs));
-               dontCares.get(i).add(deltaj);
-            } else if (f.arity == 2 && isSingleton(rhs) && intersectsAll(deltaj, i, f, psi_tuple)) {
-               lhs = new ArrayList<>();
-               for (int k = 0; k < f.arity; k++) {
-                  lhs.add(k, new LinkedHashSet<>());
-                  if (k == i) {
-                     lhs.set(k, t_inverse_table.get(f).get(i).get(deltaj));
-                  }
-               }
-               deltad.add(new PTransition(f, rhs, lhs));
-               dontCares.get(i).add(deltaj);
-            }
-         }
-         psiIntersectTuple.set(i, temp);
-      }
-      for (int i = 0; i < f.arity; i++) {
-         psi_tuple.get(i).removeAll(dontCares.get(i));
-      }
-   }
-
-   boolean isSingleton(LinkedHashSet<String> s) {
-      return s.size() == 1;
-   }
-
-   boolean intersectsAll(BitSet deltaj, int j, FuncSymb f, ArrayList<ArrayList<BitSet>> psi_tuple) {
-      // check whether deltaj intersects with all members of all non-j elements of psi_tuple
-      BitSet ts;
-      for (int k = 0; k < f.arity; k++) {
-         if (k != j) {
-            if (psi_tuple.get(k).isEmpty()) {
-               return false;
-            }
-            for (int l = 0; l < psi_tuple.get(k).size(); l++) {
-               ts = (BitSet) deltaj.clone();
-               ts.and(psi_tuple.get(k).get(l));
-               if (ts.isEmpty()) {
-                  return false;
-               }
-            }
-         }
-      }
-      return true;
-   }
-
-   LinkedHashSet<LinkedHashSet<String>> finalStates() {
-      LinkedHashSet<LinkedHashSet<String>> f = new LinkedHashSet<>();
-      for (LinkedHashSet<String> q : qd) {
-         for (String s : q) {
-            if (idx.finalStates.contains(s)) {
-               f.add(q);
-            }
-         }
-      }
-      return f;
-   }
-
-   // minimization algorithm adapted from Carrasco et al. 2016
-   ArrayList<LinkedHashSet<LinkedHashSet<String>>> minimize() {
-
-      LinkedHashMap<LinkedHashSet<String>, LinkedHashSet<Signature>> sigs = new LinkedHashMap<>();
-      LinkedHashSet<LinkedHashSet<String>> qf = finalStates();
-      Signature dummySig = new Signature(new FuncSymb("#", 1), 1);
-      for (LinkedHashSet<String> q : qd) {
-         sigs.put(q, new LinkedHashSet<>());
-         // For all q ∈ F add (#, 1, 1) to sig(q).
-         if (qf.contains(q)) {
-            sigs.get(q).add(dummySig);
-         }
-      }
-
-      // For all (σ, i1, . . . , im) ∈ Δ add (σ,m, k) to sig(ik) for k = 1, . . . , m.
-      for (PTransition t : deltad) {
-         for (int i = 0; i < t.f.arity; i++) {
-            LinkedHashSet<LinkedHashSet<String>> qis = t.lhs.get(i);
-            for (LinkedHashSet<String> qi : qis) {
-               sigs.get(qi).add(new Signature(t.f, i));
-            }
-         }
-      }
-      //System.out.println("Signatures = " + sigs);
-      // Create a map from Sigma to Delta_d
-      LinkedHashMap<FuncSymb, LinkedHashSet<PTransition>> deltadMap = new LinkedHashMap<>();
-      for (PTransition t : deltad) {
-         if (!deltadMap.containsKey(t.f)) {
-            deltadMap.put(t.f, new LinkedHashSet<PTransition>());
-         }
-         deltadMap.get(t.f).add(t);
-      }
-
-      // Create an empty set Bsig for every different signature sig and for all q ∈ Q add q to set Bsig(q).
-      LinkedHashMap<LinkedHashSet<Signature>, LinkedHashSet<LinkedHashSet<String>>> siginv = new LinkedHashMap<>();
-      for (LinkedHashSet<String> q : qd) {
-         LinkedHashSet<Signature> sigset = sigs.get(q);
-         if (siginv.containsKey(sigset)) {
-            siginv.get(sigset).add(q);
-         } else {
-            siginv.put(sigset, new LinkedHashSet<>());
-            siginv.get(sigset).add(q);
-
-         }
-      }
-      //System.out.println("SigInv = " + siginv);
-      // Set P0 ← (Q) and P1 ← {Bs : Bs ≠ ∅}.
-      ArrayList<LinkedHashSet<LinkedHashSet<String>>> p = new ArrayList<>();
-      for (LinkedHashSet<Signature> s : siginv.keySet()) {
-         p.add(new LinkedHashSet<>(siginv.get(s)));
-      }
-      // Enqueue in K the first element from every class in P1
-      ArrayList<LinkedHashSet<String>> k = new ArrayList<>();
-      for (LinkedHashSet<LinkedHashSet<String>> pi : p) {
-         k.add(new ArrayList<LinkedHashSet<String>>(pi).get(0));
-      }
-      while (!k.isEmpty()) {
-         System.out.println("Iteration p = " + p.size() + ": k = " + k.size());
-
-         // (a) Remove the first state q in K.
-         LinkedHashSet<String> q = k.remove(0);
-         LinkedHashSet<LinkedHashSet<String>> qi, qi1, phi_q;
-         // (b) For all (σ, i1, . . . , im, j) ∈ Δ such that j ∼ q and for all k ≤ m
-         for (FuncSymb f : idx.sigma) {
-            //System.out.println(f + ": " + deltadMap.get(f).size() + " transitions");
-            for (PTransition t : deltadMap.get(f)) {
-               if (congruent(p, q, t.q0)) {
-                  for (int i = 0; i < f.arity; i++) {
-                     qi = t.lhs.get(i);
-                     for (LinkedHashSet<String> qij : qi) {
-                        int r = equivClass(p, qij);
-                        if (p.get(r).size() > 1) { // can be split
-                           ArrayList<LinkedHashSet<String>> prList = new ArrayList<>(p.get(r));
-                           LinkedHashSet<String> next_qij;
-                           if (prList.indexOf(qij) < prList.size() - 1) {
-                              next_qij = prList.get(prList.indexOf(qij) + 1);
-                           } else {
-                              next_qij = prList.get(0);
-                           }
-                           ArrayList<LinkedHashSet<LinkedHashSet<String>>> phi_q_new = new ArrayList<>();
-                           for (int l = 0; l < p.size(); l++) {
-                              phi_q_new.add(new LinkedHashSet<>());
-                           }
-                           // Find transitions f(i1, . . . , ik', . . . , im) -> j where /∼ j and ik ~ ik'
-                           for (PTransition t1 : deltadMap.get(f)) {
-                              if (t1.lhs.get(i).contains(next_qij)) {
-                                 if (!congruent(p, q, t1.q0)) {
-                                    qi1 = t1.lhs.get(i);
-                                    phi_q = new LinkedHashSet<>(p.get(r));
-                                    phi_q.retainAll(qi1);
-                                    if (!phi_q.isEmpty()) {
-                                       int j = 0;
-                                       boolean split = true;
-                                       // check whether t and t1 args overlap
-                                       while (j < f.arity && split) {
-                                          if (j != i) {
-                                             split = split && nonEmptyIntersect(t.lhs.get(j), t1.lhs.get(j));
-                                          }
-                                          j++;
-                                       }
-                                       if (split) {
-                                          // add each element of phi_q to the new equivalence class
-                                          LinkedHashSet<LinkedHashSet<String>> e = phi_q_new.get(equivClass(p, t1.q0));
-                                          for (LinkedHashSet<String> qk : phi_q) {
-                                             if (!e.contains(qk)) {
-                                                e.add(qk);
-                                             }
-                                          }
-                                       }
+            // endregion
+            // region main
+            final ArrayList<LinkedHashSet<String>> qdnew = new ArrayList<>(qd);
+            final LinkedHashSet<LinkedHashSet<String>> qdnew_1 = new LinkedHashSet<>();
+            while (!qdnew.isEmpty()) {
+                qdnew_1.clear();
+                for (final FuncSymb f : indices_a.constructors) {
+                    if (f.arity > 0) {
+                        // Initialise the Phi and Psi tuples.
+                        final ArrayList<LinkedHashSet<BitSet>> psi_f = psi.get(f);
+                        final ArrayList<LinkedHashSet<BitSet>> phi_f = phi.get(f);
+                        for (int j = 0; j < f.arity; j++) {
+                            final LinkedHashSet<BitSet> phi_f_j = new LinkedHashSet<>();
+                            for(final LinkedHashSet<String> qs : qdnew) {
+                                // region lhs_set
+                                final BitSet h = DeterminiserTextBook.or_all(idx, new BitSet(indices_a.transitions.size()), qs, f, j);
+                                // Tabulate result for the t_inverse function.
+                                if (!h.isEmpty()) {
+                                    final LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>> hm = t_inverse_table.get(f).get(j);
+                                    if (!hm.containsKey(h)) {
+                                        hm.put(h, new LinkedHashSet<>());
                                     }
-                                 }
-                              }
-                           }
-
-                           // replace phi[q] with the partitions in pi_new
-                          
-                           LinkedHashSet<LinkedHashSet<String>> oldEquivClass = p.remove(r);
-                           for (LinkedHashSet<LinkedHashSet<String>> newEquivClass : phi_q_new) {
-                              if (!newEquivClass.isEmpty()) {
-                                 p.add(newEquivClass);
-                                 oldEquivClass.removeAll(newEquivClass);
-                                 ArrayList<LinkedHashSet<String>> newList = new ArrayList<>(newEquivClass);
-                                 // Add to K the first element from every subset created 
-                                 if (!k.contains(newList.get(0))) {
-                                    k.add(newList.get(0));
-                                 }
-                              }
-                           }
-                           // put back what is left of the original equiv class
-                           if (!oldEquivClass.isEmpty()) {
-                              p.add(oldEquivClass);
-                           }
+                                    hm.get(h).add(qs);
+                                }
+                                // endregion
+                                if (!h.isEmpty()) {
+                                    phi_f_j.add(h);
+                                }
+                            }
+                            // Remove sets already computed for jth argument.
+                            phi_f_j.removeAll(psi_f.get(j));
+                            phi_f.set(j, phi_f_j);
                         }
-                     }
-                  }
-               }
+                        for (int j = 0; j < f.arity; j++) {
+                            // if size of phi_f[j] = 0 then prod will be 0
+                            if (phi_f.get(j).size() > 0) {
+                                final ArrayList<ArrayList<BitSet>> psi_phi_tuple = new ArrayList<>();
+                                for (int k = 0; k < f.arity; k++) {
+                                    if (k < j) {
+                                        psi_phi_tuple.add(k, new ArrayList<>(psi_f.get(k)));
+                                    } else if (k == j) {
+                                        psi_phi_tuple.add(k, new ArrayList<>(phi_f.get(j)));
+                                    } else {
+                                        psi_phi_tuple.add(k, new ArrayList<>(phi_f.get(k)));
+                                        psi_phi_tuple.get(k).addAll(psi_f.get(k));
+                                    }
+                                }
+                                int prod = 1;
+                                for (int k = 0; k < f.arity; k++) {
+                                    prod = prod * psi_phi_tuple.get(k).size();
+                                }
+                                // enumerate the delta-tuples (cartesian product)
+                                for (int k = 0; k < prod; k++) {
+                                    int temp = k;
+                                    // Re-initialise delta-tuple
+                                    final ArrayList<BitSet> deltatuple = new ArrayList<>();
+                                    for (int m = 0; m < f.arity; m++) {
+                                        final int z = psi_phi_tuple.get(m).size();
+                                        deltatuple.add(m, psi_phi_tuple.get(m).get(temp % z));
+                                        temp = temp / z;
+                                    }
+                                    final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(idx, DeterminiserTextBook.and_all(deltatuple));
+                                    if (!q0.isEmpty()) {
+                                        if (qd.add(q0)) {
+                                            qdnew_1.add(q0);
+                                            // region includes check
+                                            if (includes != null) {
+                                                if (!inclusionCheckState(q0, includes.q1, includes.q2)) {
+                                                    result = false;
+                                                    break outer;
+                                                }
+                                            }
+                                            // endregion
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        for (int j = 0; j < f.arity; j++) {
+                            psi_f.get(j).addAll(phi_f.get(j));
+                        }
+                    }
+                }
+                qdnew.clear();
+                qdnew.addAll(qdnew_1);
             }
-         }
-      }
-      
-      return p;
-   }
-
-// check inclusion between states in the input FTA
-   @Override
-   public boolean includes(String q1, String q2) {
-      Iterator iter;
-      LinkedHashSet<String> q;
-      boolean includes = true;
-      iter = qd.iterator();
-      while (iter.hasNext() && includes) {
-         q = (LinkedHashSet<String>) iter.next();
-         includes = includes && (!q.contains(q1) || q.contains(q2));
-      }
-      return includes;
-   }
-
-// check inclusion between states in the input FTA
-   public boolean inclusionCheck(LinkedHashSet<String> q1, LinkedHashSet<String> q2) {
-      Iterator iter, qiter1, qiter2;
-      String x;
-      LinkedHashSet<String> q;
-      boolean includes = true;
-      boolean b;
-      iter = qd.iterator();
-      while (iter.hasNext() && includes) {
-         q = (LinkedHashSet<String>) iter.next();
-         qiter1 = q1.iterator();
-         while (qiter1.hasNext()) {
-            x = (String) qiter1.next();
-            if (q.contains(x)) {
-               b = false;
-               qiter2 = q2.iterator();
-               while (qiter2.hasNext() && !b) {
-                  if (q.contains((String) qiter2.next())) {
-                     b = true;
-                  }
-               }
-               includes = includes && b;
+            // endregion
+            // region result
+            result = true;
+            break outer;
+            // endregion
+        }
+        // endregion
+        // region dfta transitions
+        if (!states_only) {
+            for (final FuncSymb f : indices_a.constructors) {
+                if (f.arity == 0) {
+                    final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(idx, idx.f_index.get(f));
+                    if (!q0.isEmpty()) {
+                        deltad.add(new PTransition(f, q0, new ArrayList<>()));
+                    }
+                } else {
+                    final ArrayList<ArrayList<BitSet>> psi_tuple = new ArrayList<>();
+                    final ArrayList<BitSet> deltatuple = new ArrayList<>();
+                    // Initialise delta-tuple and psi-tuple.
+                    for (int j = 0; j < f.arity; j++) {
+                        psi_tuple.add(j, new ArrayList<>(psi.get(f).get(j)));
+                        deltatuple.add(j, new BitSet(indices_a.transitions.size()));
+                    }
+                    // Check for don't care arguments for functions of arity > 1
+                    // remove such arguments from the psi-tuple.
+                    if (f.arity > 1 && dont_care) {
+                        final ArrayList<BitSet> psiIntersectTuple = new ArrayList<>();
+                        final ArrayList<LinkedHashSet<BitSet>> dontCares = new ArrayList<>();
+                        // Intersect elements of psi-tuple and initialise don't-care array.
+                        for (int i = 0; i < f.arity; i++) {
+                            if (!psi_tuple.get(i).isEmpty()) {
+                                psiIntersectTuple.add(i, DeterminiserTextBook.and_all(psi_tuple.get(i)));
+                            } else {
+                                psiIntersectTuple.add(i, new BitSet(indices_a.transitions.size()));
+                            }
+                            dontCares.add(i, new LinkedHashSet<>());
+                        }
+                        for (int i = 0; i < f.arity; i++) {
+                            final BitSet temp = psiIntersectTuple.get(i);
+                            for (int j = 0; j < psi_tuple.get(i).size(); j++) {
+                                final BitSet deltaj = psi_tuple.get(i).get(j);
+                                psiIntersectTuple.set(i, deltaj);
+                                final LinkedHashSet<String> rhs = DeterminiserTextBook.rhs_set(idx, deltaj);
+                                if (rhs.equals(DeterminiserTextBook.rhs_set(idx, DeterminiserTextBook.and_all(psiIntersectTuple))) || (f.arity == 2 && rhs.size() == 1 && intersectsAll(deltaj, i, f, psi_tuple))) {
+                                    final ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs = new ArrayList<>();
+                                    for (int k = 0; k < f.arity; k++) {
+                                        lhs.add(k, new LinkedHashSet<>());
+                                        if (k == i) {
+                                            lhs.set(k, t_inverse_table.get(f).get(i).get(deltaj));
+                                        }
+                                    }
+                                    deltad.add(new PTransition(f, rhs, lhs));
+                                    dontCares.get(i).add(deltaj);
+                                }
+                            }
+                            psiIntersectTuple.set(i, temp);
+                        }
+                        for (int i = 0; i < f.arity; i++) {
+                            psi_tuple.get(i).removeAll(dontCares.get(i));
+                        }
+                    }
+                    /// TODO if don_care is false, is this just qd.length^arity?
+                    int prod = 1;
+                    for (int j = 0; j < f.arity; j++) {
+                        prod = prod * psi_tuple.get(j).size();
+                    }
+                    for (int j = 0; j < prod; j++) {
+                        int temp = j;
+                        for (int k = 0; k < f.arity; k++) {
+                            final int z = psi_tuple.get(k).size();
+                            deltatuple.set(k, psi_tuple.get(k).get(temp % z));
+                            temp = temp / z;
+                        }
+                        final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(idx, DeterminiserTextBook.and_all(deltatuple));
+                        if (!q0.isEmpty()) {
+                            final ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs = new ArrayList<>();
+                            for (int m = 0; m < f.arity; m++) {
+                                lhs.add(m, t_inverse_table.get(f).get(m).get(deltatuple.get(m)));
+                            }
+                            deltad.add(new PTransition(f, q0, lhs));
+                        }
+                    }
+                }
             }
-         }
-      }
-      return includes;
-   }
+        }
+        // endregion
+        return result;
+    }
 
-// check inclusion between states in the input FTA
-   public boolean inclusionCheckState(LinkedHashSet<String> q0, LinkedHashSet<String> q1, LinkedHashSet<String> q2) {
-      Iterator iter, qiter1, qiter2;
-      String x;
-      boolean includes = true;
-      boolean b;
-
-      qiter1 = q1.iterator();
-      while (qiter1.hasNext()) {
-         x = (String) qiter1.next();
-         if (q0.contains(x)) {
-            b = false;
-            qiter2 = q2.iterator();
-            while (qiter2.hasNext() && !b) {
-               if (q0.contains((String) qiter2.next())) {
-                  b = true;
-               }
+    boolean intersectsAll(BitSet deltaj, int j, FuncSymb f, ArrayList<ArrayList<BitSet>> psi_tuple) {
+        // Check whether deltaj intersects with all members of all non-j elements of psi_tuple.
+        for (int k = 0; k < f.arity; k++) {
+            if (k != j) {
+                if (psi_tuple.get(k).isEmpty()) {
+                    return false;
+                } else {
+                    for (int l = 0; l < psi_tuple.get(k).size(); l++) {
+                        final BitSet ts = (BitSet) deltaj.clone();
+                        ts.and(psi_tuple.get(k).get(l));
+                        if (ts.isEmpty()) {
+                            return false;
+                        }
+                    }
+                }
             }
-            includes = includes && b;
-         }
-      }
-      return includes;
-   }
+        }
+        return true;
+    }
 
-   @Override
-   public void printDfta(PrintStream output, PrintStream output1) {
-      output.println();
-      deltad.stream().forEach((deltad1) -> {
-         output.println(deltad1.toString() + ".");
-      });
-   }
+    public boolean inclusionCheckState(LinkedHashSet<String> q0, LinkedHashSet<String> q1, LinkedHashSet<String> q2) {
+        // Check inclusion between states in the input FTA.
+        boolean includes = true;
+        for (final String x : q1) {
+            if (q0.contains(x)) {
+                boolean b = false;
+                final Iterator<String> qiter2 = q2.iterator();
+                while (qiter2.hasNext() && !b) {
+                    if (q0.contains(qiter2.next())) {
+                        b = true;
+                    }
+                }
+                includes = includes && b;
+            }
+        }
+        return includes;
+    }
 
-   @Override
-   public void printDftaDatalog(PrintStream output) {
-      PTransition t;
-      FuncSymb f;
-      LinkedHashSet<String> q0;
-      int n;
+    private int equivClass(ArrayList<LinkedHashSet<LinkedHashSet<String>>> p, LinkedHashSet<String> q) {
+        int i = 0;
+        int n = p.size();
+        while (i < n) {
+            if (p.get(i).contains(q)) return i;
+            i++;
+        }
+        return -1;
+    }
 
-      ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs;
-      ArrayList<String> args;
-      LinkedHashMap<LinkedHashSet<LinkedHashSet<String>>, String> productNames = new LinkedHashMap<>();
-      LinkedHashMap<LinkedHashSet<String>, String> stateNames = new LinkedHashMap<>();
-      String head, body;
+    public long deltaDCount() {
+        double count = 0;
+        double qdsize = qd.size();
+        for (final PTransition deltad1 : deltad) {
+            double tcount = 1.0;
+            for (final LinkedHashSet<LinkedHashSet<String>> lh : deltad1.lhs) {
+                double argsize = lh.size();
+                if (argsize == 0) argsize = qdsize;  // don't care argument
+                tcount = tcount * argsize;
+            }
+            count = count + tcount;
+        }
+        return Math.round(count);
+    }
+    // endregion
 
-      // make state names q0, q1,... from elements of qd
-      // print dictionary of state names as comments
-      Iterator iter = qd.iterator();
-      Iterator iter1;
-      LinkedHashSet<String> q;
-      int j = 0;
-      output.println();
-      while (iter.hasNext()) {
-         q = (LinkedHashSet<String>) iter.next();
-         stateNames.put(q, "qq" + j);
-         j++;
-         output.println("### " + q + " --> " + stateNames.get(q));
-      }
-      output.println();
-
-      // print transitions as datalog clauses
-      j = 0;
-      for (PTransition deltad1 : deltad) {
-         t = deltad1;
-         f = t.f;
-         lhs = t.lhs;
-         q0 = t.q0;
-         args = new ArrayList<>();
-         for (int m = 0; m < lhs.size(); m++) {
-            if (lhs.get(m).size() > 1) {
-               if (!productNames.containsKey(lhs.get(m))) {
-                  productNames.put(lhs.get(m), "product" + j);
-                  j++;
-               }
-               args.add(m, "X" + m);
-            } else if (lhs.get(m).size() < 1) { // empty set
-               if (!productNames.containsKey(lhs.get(m))) {
-                  productNames.put(lhs.get(m), "dontCare");
-               }
-               args.add(m, "X" + m);
+    // region minimize
+    static ArrayList<LinkedHashSet<LinkedHashSet<String>>> minimize_carrasco(DeterminiserOpt data, IndicesB idx, TAModel model) {
+        // region collect final states
+        final LinkedHashSet<LinkedHashSet<String>> qf = new LinkedHashSet<>();
+        for (LinkedHashSet<String> q : data.qd) {
+            for (String s : q) {
+                if (model.final_states.contains(s)) {
+                    qf.add(q);
+                }
+            }
+        }
+        // endregion
+        // region rest
+        final LinkedHashMap<LinkedHashSet<String>, LinkedHashSet<Signature>> sigs = new LinkedHashMap<>();
+        final Signature dummySig = new Signature(new FuncSymb("#", 1), 1);
+        for (final LinkedHashSet<String> q : data.qd) {
+            sigs.put(q, new LinkedHashSet<>());
+            // For all q ∈ F add (#, 1, 1) to sig(q).
+            if (qf.contains(q)) {
+                sigs.get(q).add(dummySig);
+            }
+        }
+        // For all (σ, i1, . . . , im) ∈ Δ add (σ,m, k) to sig(ik) for k = 1, . . . , m.
+        for (final PTransition t : data.deltad) {
+            for (int i = 0; i < t.f.arity; i++) {
+                LinkedHashSet<LinkedHashSet<String>> qis = t.lhs.get(i);
+                for (LinkedHashSet<String> qi : qis) {
+                    sigs.get(qi).add(new Signature(t.f, i));
+                }
+            }
+        }
+        // Create a map from Sigma to Delta_d
+        final LinkedHashMap<FuncSymb, LinkedHashSet<PTransition>> deltadMap = new LinkedHashMap<>();
+        for (PTransition t : data.deltad) {
+            if (!deltadMap.containsKey(t.f)) {
+                deltadMap.put(t.f, new LinkedHashSet<>());
+            }
+            deltadMap.get(t.f).add(t);
+        }
+        // Create an empty set Bsig for every different signature sig and for all q ∈ Q add q to set Bsig(q).
+        final LinkedHashMap<LinkedHashSet<Signature>, LinkedHashSet<LinkedHashSet<String>>> siginv = new LinkedHashMap<>();
+        for (LinkedHashSet<String> q : data.qd) {
+            final LinkedHashSet<Signature> sigset = sigs.get(q);
+            if (siginv.containsKey(sigset)) {
+                siginv.get(sigset).add(q);
             } else {
-               iter1 = lhs.get(m).iterator();
-               args.add(m, stateNames.get((LinkedHashSet<String>) iter1.next())); // singleton product state
+                siginv.put(sigset, new LinkedHashSet<>());
+                siginv.get(sigset).add(q);
             }
-         }
-         head = f.datalogName() + "(";
-         for (String arg : args) {
-            head += arg + ",";
-         }
-         head += stateNames.get(q0) + ")";
-         // construct body
-         body = "";
-         int k = 0;
-         for (int m = 0; m < args.size(); m++) {
-            if (lhs.get(m).size() != 1) {
-               if (k > 0) {
-                  body += ",";
-               }
-               body += productNames.get(lhs.get(m)) + "(" + args.get(m) + ")";
-               k++;
+        }
+        // Set P0 ← (Q) and P1 ← {Bs : Bs ≠ ∅}.
+        ArrayList<LinkedHashSet<LinkedHashSet<String>>> p = new ArrayList<>();
+        for (final LinkedHashSet<Signature> s : siginv.keySet()) {
+            p.add(new LinkedHashSet<>(siginv.get(s)));
+        }
+        // Enqueue in K the first element from every class in P1
+        final ArrayList<LinkedHashSet<String>> k = new ArrayList<>();
+        for (final LinkedHashSet<LinkedHashSet<String>> pi : p) {
+            k.add(new ArrayList<>(pi).get(0));
+        }
+        while (!k.isEmpty()) {
+            // (a) Remove the first state q in K.
+            final LinkedHashSet<String> q = k.remove(0);
+            // (b) For all (σ, i1, . . . , im, j) ∈ Δ such that j ∼ q and for all k ≤ m
+            for (final FuncSymb f : data.indices_a.constructors) {
+                for (final PTransition t : deltadMap.get(f)) {
+                    if (congruent(data, p, q, t.q0)) {
+                        for (int i = 0; i < f.arity; i++) {
+                            final LinkedHashSet<LinkedHashSet<String>> qi = t.lhs.get(i);
+                            for (final LinkedHashSet<String> qij : qi) {
+                                final int r = data.equivClass(p, qij);
+                                if (p.get(r).size() > 1) { // can be split
+                                    final ArrayList<LinkedHashSet<String>> prList = new ArrayList<>(p.get(r));
+                                    final LinkedHashSet<String> next_qij;
+                                    if (prList.indexOf(qij) < prList.size() - 1) {
+                                        next_qij = prList.get(prList.indexOf(qij) + 1);
+                                    } else {
+                                        next_qij = prList.get(0);
+                                    }
+                                    final ArrayList<LinkedHashSet<LinkedHashSet<String>>> phi_q_new = new ArrayList<>();
+                                    for (int l = 0; l < p.size(); l++) {
+                                        phi_q_new.add(new LinkedHashSet<>());
+                                    }
+                                    // Find transitions f(i1, . . . , ik', . . . , im) -> j where /∼ j and ik ~ ik'
+                                    for (PTransition t1 : deltadMap.get(f)) {
+                                        if (t1.lhs.get(i).contains(next_qij)) {
+                                            if (!congruent(data, p, q, t1.q0)) {
+                                                final LinkedHashSet<LinkedHashSet<String>> qi1 = t1.lhs.get(i);
+                                                final LinkedHashSet<LinkedHashSet<String>> phi_q = new LinkedHashSet<>(p.get(r));
+                                                phi_q.retainAll(qi1);
+                                                if (!phi_q.isEmpty()) {
+                                                    int j = 0;
+                                                    boolean split = true;
+                                                    // check whether t and t1 args overlap
+                                                    while (j < f.arity && split) {
+                                                        if (j != i) {
+                                                            split = split && data.nonEmptyIntersect(t.lhs.get(j), t1.lhs.get(j));
+                                                        }
+                                                        j++;
+                                                    }
+                                                    if (split) {
+                                                        // add each element of phi_q to the new equivalence class
+                                                        final LinkedHashSet<LinkedHashSet<String>> e = phi_q_new.get(data.equivClass(p, t1.q0));
+                                                        for (LinkedHashSet<String> qk : phi_q) {
+                                                            if (!e.contains(qk)) {
+                                                                e.add(qk);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // replace phi[q] with the partitions in pi_new
+                                    final LinkedHashSet<LinkedHashSet<String>> oldEquivClass = p.remove(r);
+                                    for (final LinkedHashSet<LinkedHashSet<String>> newEquivClass : phi_q_new) {
+                                        if (!newEquivClass.isEmpty()) {
+                                            p.add(newEquivClass);
+                                            oldEquivClass.removeAll(newEquivClass);
+                                            final ArrayList<LinkedHashSet<String>> newList = new ArrayList<>(newEquivClass);
+                                            // Add to K the first element from every subset created
+                                            if (!k.contains(newList.get(0))) {
+                                                k.add(newList.get(0));
+                                            }
+                                        }
+                                    }
+                                    // put back what is left of the original equiv class
+                                    if (!oldEquivClass.isEmpty()) {
+                                        p.add(oldEquivClass);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-         }
-         if (k == 0) {
-            output.println(head + ".");
-         } else {
-            output.println(head + " :- " + body + ".");
-         }
-      }
+        }
+        return p;
+        // endregion
+    }
 
-      // print product state clauses
-      output.println();
-      output.println("### Product states");
-      iter = productNames.keySet().iterator();
-      LinkedHashSet<LinkedHashSet<String>> product;
-      String pName;
-      while (iter.hasNext()) {
-         product = (LinkedHashSet<LinkedHashSet<String>>) iter.next();
-         pName = productNames.get(product);
-         head = pName + "(";
-         if (product.isEmpty()) {
-            product = qd;
-         }
-         iter1 = product.iterator();
-         while (iter1.hasNext()) {
-            output.println(head + stateNames.get((LinkedHashSet<String>) iter1.next()) + ").");
-         }
-      }
-   }
+    static private boolean congruent(DeterminiserOpt d, ArrayList<LinkedHashSet<LinkedHashSet<String>>> p, LinkedHashSet<String> q, LinkedHashSet<String> q0) {
+        return d.equivClass(p, q) == d.equivClass(p, q0);
+    }
 
-   public long deltaDCount() {
-      double count = 0;
-      double tcount;
-      double argsize;
-      double qdsize = qd.size();
-      ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs;
-      for (PTransition deltad1 : deltad) {
-         lhs = deltad1.lhs;
-         tcount = 1.0;
-         for (LinkedHashSet<LinkedHashSet<String>> lh : lhs) {
-            argsize = lh.size();
-            if (argsize == 0) {
-               argsize = qdsize;  // don't care argument
+    static private boolean nonEmptyIntersect(LinkedHashSet<LinkedHashSet<String>> qi, LinkedHashSet<LinkedHashSet<String>> qj) {
+        for (final LinkedHashSet<String> s : qi) {
+            if (qj.contains(s)) {
+                return true;
             }
-            tcount = tcount * argsize;
-         }
-         count = count + tcount;
-      }
-      return Math.round(count);
-   }
+        }
+        return false;
+    }
+    // endregion
+}
 
-   public long deltaDCountComplete() {
-      Iterator iter = idx.sigma.iterator();
-      double count = 0;
-      FuncSymb f;
-      double qdsize = qd.size();
-      while (iter.hasNext()) {
-         f = (FuncSymb) iter.next();
-         count = count + Math.pow(qdsize, (double) f.arity);
-      }
-      return Math.round(count);
-   }
+class IncludesProps {
+    final LinkedHashSet<String> q1;
+    final LinkedHashSet<String> q2;
 
-   /**
-    *
-    */
-   @Override
-   public void showStats(boolean verbose) {
-      if (verbose) {
-         System.out.println();
-         System.out.print("Number of input FTA states = ");
-      }
-      System.out.print(idx.qs.size() + ", ");
-      if (verbose) {
-         System.out.println();
-         System.out.print("Number of input FTA transitions = ");
-      }
-      System.out.print(idx.delta.size() + ", ");
-      if (verbose) {
-         System.out.println();
-         System.out.print("Number of DFTA states = ");
-      }
-      System.out.print(qd.size() + ", ");
-      if (any) {
-         if (verbose) {
-            System.out.println();
-            System.out.print("Number of DFTA transitions = ");
-         }
-         System.out.print(deltaDCountComplete() + ", ");
-      } else {
-         if (verbose) {
-            System.out.println();
-            System.out.print("Number of DFTA transitions = ");
-         }
-         System.out.print(deltaDCount() + ", ");
-      }
-      if (verbose) {
-         System.out.println();
-         System.out.print("Number of DFTA product transitions = ");
-      }
-      System.out.println(deltad.size() + ", ");
-   }
+    public IncludesProps(LinkedHashSet<String> q1, LinkedHashSet<String> q2) {
+        this.q1 = q1;
+        this.q2 = q2;
+    }
+}
 
-   public void showStatsApp(JTextArea ja) {
+class PTransition {
+    final FuncSymb f;
+    final LinkedHashSet<String> q0;
+    final ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs;
 
-      ja.append("Number of input FTA states = " + idx.qs.size() + "\n");
-      ja.append("Number of input FTA transitions = " + idx.delta.size() + "\n");
-      ja.append("Number of DFTA states = " + qd.size() + "\n");
-      ja.append("Number of DFTA transitions = " + deltad.size() + "\n");
-   }
+    public PTransition(FuncSymb f, LinkedHashSet<String> q0, ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs) {
+        this.f = f;
+        this.q0 = q0;
+        this.lhs = lhs;
+    }
+}
 
-   public LinkedHashSet<LinkedHashSet<String>> getQd() {
-      return qd;
-   }
+class Signature {
+    final FuncSymb f;
+    final int i;
 
-   public ArrayList<PTransition> getDeltad() {
-      return deltad;
-   }
+    Signature(FuncSymb f, int i) {
+        this.f = f;
+        this.i = i;
+    }
 
-   /**
-    *
-    * @return
-    */
-   @Override
-   public Indices getIdx() {
-      return idx;
-   }
+    @Override
+    public boolean equals(Object g) {
+        Signature g1 = (Signature) g;
+        return i == g1.i && f.equals(g1.f);
+    }
 
-   void showQD() {
-      Iterator i;
-      i = qd.iterator();
-      while (i.hasNext()) {
-         System.out.println((LinkedHashSet<String>) i.next());
-      }
-   }
+    @Override
+    public int hashCode() {
+        return i * 127 + f.hashCode();
+    }
 
-   void psi_reinit(FuncSymb f) {
-      psi.get(f).clear();
-      for (int j = 0; j < f.arity; j++) {
-         psi.get(f).add(j, t(j, f, qd));
-      }
-   }
-
-   LinkedHashSet<BitSet> intersectCartProd(ArrayList<ArrayList<BitSet>> psi_phi_tuple, int k) {
-      LinkedHashSet<BitSet> result = new LinkedHashSet<>();
-      BitSet t;
-      if (k == psi_phi_tuple.size() - 1) {
-         for (int i = 0; i < psi_phi_tuple.get(k).size(); i++) {
-            result.add((BitSet) (psi_phi_tuple.get(k).get(i)).clone());
-         }
-         return result;
-      } else {
-         LinkedHashSet<BitSet> r = intersectCartProd(psi_phi_tuple, k + 1);
-         Iterator i = r.iterator();
-         while (i.hasNext()) {
-            t = (BitSet) i.next();
-            for (int j = 0; j < psi_phi_tuple.get(k).size(); j++) {
-               BitSet u = (BitSet) t.clone();
-               u.and(psi_phi_tuple.get(k).get(j));
-               if (!u.isEmpty()) {
-                  result.add(u);
-               }
-            }
-         }
-      }
-      return result;
-   }
-
-   private boolean congruent(ArrayList<LinkedHashSet<LinkedHashSet<String>>> p, LinkedHashSet<String> q, LinkedHashSet<String> q0) {
-      return (equivClass(p, q) == equivClass(p, q0));
-   }
-
-   private int equivClass(ArrayList<LinkedHashSet<LinkedHashSet<String>>> p, LinkedHashSet<String> q) {
-      int i = 0;
-      int n = p.size();
-      while (i < n) {
-         if (p.get(i).contains(q)) {
-            return (i);
-         }
-         i++;
-      }
-      return -1;
-   }
-
-   private boolean nonEmptyIntersect(LinkedHashSet<LinkedHashSet<String>> qi, LinkedHashSet<LinkedHashSet<String>> qj) {
-      for (LinkedHashSet<String> s : qi) {
-         if (qj.contains(s)) {
-            return true;
-         }
-      }
-      return false;
-   }
-
+    public String toString() {
+        return "(" + f + "," + i + ")";
+    }
 }
