@@ -42,7 +42,7 @@ public class Driver {
                     idx_final.states.addAll(idx2_a.states);
                     final long midTime = System.currentTimeMillis();
                     final DeterminiserOpt det = new DeterminiserOpt(new IndicesB(idx_final), idx_final);
-                    boolean b = det.makeDfta(true, false, new IncludesProps(idx1_a.final_states, idx2_a.final_states));
+                    boolean b = det.makeDfta(true, new IncludesProps(idx1_a.final_states, idx2_a.final_states));
                     final long endTime = System.currentTimeMillis();
                     System.out.println("Input file 1 = " + inputFile1 + ",");
                     System.out.println("Input file 2 = " + inputFile2 + ",");
@@ -68,7 +68,7 @@ public class Driver {
 //        switch ("tb") {
             case "opt" -> {
                 final DeterminiserOpt det = new DeterminiserOpt(indices_b, indices_a);
-                det.makeDfta(false, false, null);
+                det.makeDfta(false, null);
                 System.out.println("Number of DFTA states/normal transitions/product transitions = " + det.qd.size() + "/" + det.deltaDCount() + "/" + det.deltad.size());
             }
             case "tb" -> {

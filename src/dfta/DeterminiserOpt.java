@@ -22,11 +22,10 @@ public class DeterminiserOpt {
     // endregion
 
     // region solver
-    public boolean makeDfta(boolean states_only, boolean dont_care, IncludesProps includes) {
+    public boolean makeDfta(boolean states_only, IncludesProps includes) {
         // region prepare
-        final LinkedHashMap<FuncSymb, ArrayList<LinkedHashSet<BitSet>>> psi = new LinkedHashMap<>();
-        final LinkedHashMap<FuncSymb, ArrayList<BitSet>> psi_glb = new LinkedHashMap<>();
         final boolean result;
+        final LinkedHashMap<FuncSymb, ArrayList<LinkedHashSet<BitSet>>> psi = new LinkedHashMap<>();
         // endregion
         // region states
         outer: for(;;) {
@@ -47,20 +46,22 @@ public class DeterminiserOpt {
                         // endregion
                     }
                 } else {
-                    // Initialise Psi_1 ... Psi_n and Phi_1 ... Phi_n for each f/n.
-                    // Initialise the t_inverse_table.
-                    psi_glb.put(f, new ArrayList<>());
+                    // region Initialise
+                    //  • Psi_1 ... Psi_n
+                    //  • Phi_1 ... Phi_n for each f/n.
+                    //  • the t_inverse_table.
                     final ArrayList<LinkedHashSet<BitSet>> psi_f = new ArrayList<>(f.arity);
                     final ArrayList<LinkedHashSet<BitSet>> phi_f = new ArrayList<>(f.arity);
-                    t_inverse_table.put(f, new ArrayList<>());
+                    final ArrayList<LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>>> t_inverse_table_f = new ArrayList<>();
                     for (int j = 0; j < f.arity; j++) {
                         psi_f.add(j, new LinkedHashSet<>());
                         phi_f.add(j, new LinkedHashSet<>());
-                        t_inverse_table.get(f).add(j, new LinkedHashMap<>());
-                        psi_glb.get(f).add(j, new BitSet(indices_a.transitions.size()));
+                        t_inverse_table_f.add(j, new LinkedHashMap<>());
                     }
                     psi.put(f, psi_f);
                     phi.put(f, phi_f);
+                    t_inverse_table.put(f, t_inverse_table_f);
+                    // endregion
                 }
             }
             // endregion
@@ -172,45 +173,6 @@ public class DeterminiserOpt {
                         psi_tuple.add(j, new ArrayList<>(psi.get(f).get(j)));
                         deltatuple.add(j, new BitSet(indices_a.transitions.size()));
                     }
-                    // Check for don't care arguments for functions of arity > 1
-                    // remove such arguments from the psi-tuple.
-                    if (f.arity > 1 && dont_care) {
-                        final ArrayList<BitSet> psiIntersectTuple = new ArrayList<>();
-                        final ArrayList<LinkedHashSet<BitSet>> dontCares = new ArrayList<>();
-                        // Intersect elements of psi-tuple and initialise don't-care array.
-                        for (int i = 0; i < f.arity; i++) {
-                            if (!psi_tuple.get(i).isEmpty()) {
-                                psiIntersectTuple.add(i, DeterminiserTextBook.and_all(psi_tuple.get(i)));
-                            } else {
-                                psiIntersectTuple.add(i, new BitSet(indices_a.transitions.size()));
-                            }
-                            dontCares.add(i, new LinkedHashSet<>());
-                        }
-                        for (int i = 0; i < f.arity; i++) {
-                            final BitSet temp = psiIntersectTuple.get(i);
-                            for (int j = 0; j < psi_tuple.get(i).size(); j++) {
-                                final BitSet deltaj = psi_tuple.get(i).get(j);
-                                psiIntersectTuple.set(i, deltaj);
-                                final LinkedHashSet<String> rhs = DeterminiserTextBook.rhs_set(idx, deltaj);
-                                if (rhs.equals(DeterminiserTextBook.rhs_set(idx, DeterminiserTextBook.and_all(psiIntersectTuple))) || (f.arity == 2 && rhs.size() == 1 && intersectsAll(deltaj, i, f, psi_tuple))) {
-                                    final ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs = new ArrayList<>();
-                                    for (int k = 0; k < f.arity; k++) {
-                                        lhs.add(k, new LinkedHashSet<>());
-                                        if (k == i) {
-                                            lhs.set(k, t_inverse_table.get(f).get(i).get(deltaj));
-                                        }
-                                    }
-                                    deltad.add(new PTransition(f, rhs, lhs));
-                                    dontCares.get(i).add(deltaj);
-                                }
-                            }
-                            psiIntersectTuple.set(i, temp);
-                        }
-                        for (int i = 0; i < f.arity; i++) {
-                            psi_tuple.get(i).removeAll(dontCares.get(i));
-                        }
-                    }
-                    /// TODO if don_care is false, is this just qd.length^arity?
                     int prod = 1;
                     for (int j = 0; j < f.arity; j++) {
                         prod = prod * psi_tuple.get(j).size();
@@ -316,12 +278,12 @@ public class DeterminiserOpt {
         // endregion
         // region rest
         final LinkedHashMap<LinkedHashSet<String>, LinkedHashSet<Signature>> sigs = new LinkedHashMap<>();
-        final Signature dummySig = new Signature(new FuncSymb("#", 1), 1);
+        final Signature dummy_sig = new Signature(new FuncSymb("#", 1), 1);
         for (final LinkedHashSet<String> q : data.qd) {
             sigs.put(q, new LinkedHashSet<>());
             // For all q ∈ F add (#, 1, 1) to sig(q).
             if (qf.contains(q)) {
-                sigs.get(q).add(dummySig);
+                sigs.get(q).add(dummy_sig);
             }
         }
         // For all (σ, i1, . . . , im) ∈ Δ add (σ,m, k) to sig(ik) for k = 1, . . . , m.
