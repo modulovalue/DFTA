@@ -7,237 +7,166 @@ import java.util.*;
 public class DeterminiserOpt {
     // region preamble
     final LinkedHashSet<LinkedHashSet<String>> qd;
-    final ArrayList<PTransition> deltad;
-    final LinkedHashMap<FuncSymb, ArrayList<LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>>>> t_inverse_table;
-    final IndicesB idx;
+    final ArrayList<PTransition> delta_p;
     final IndicesA indices_a;
+    final IndicesB indices_b;
 
-    public DeterminiserOpt(IndicesB idx, IndicesA idx_a) {
-        this.idx = idx;
-        this.indices_a = idx_a;
-        deltad = new ArrayList<>();
+    public DeterminiserOpt(IndicesB indices_b, IndicesA indices_a) {
+        this.indices_b = indices_b;
+        this.indices_a = indices_a;
+        delta_p = new ArrayList<>();
         qd = new LinkedHashSet<>();
-        t_inverse_table = new LinkedHashMap<>();
+        // region states
+        // region init
+        final LinkedHashMap<FuncSymb, ArrayList<LinkedHashSet<BitSet>>> psi = new LinkedHashMap<>();
+        final LinkedHashMap<FuncSymb, ArrayList<LinkedHashSet<BitSet>>> phi = new LinkedHashMap<>();
+        final LinkedHashMap<FuncSymb, ArrayList<LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>>>> t_inverse_table = new LinkedHashMap<>();
+        for (final FuncSymb f : this.indices_a.constructors) {
+            if (f.arity == 0) {
+                final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(indices_b, indices_b.f_index.get(f));
+                if (!q0.isEmpty()) {
+                    qd.add(q0);
+                }
+            } else {
+                // Initialise:
+                //  • Psi_1 ... Psi_n
+                //  • Phi_1 ... Phi_n for each f/n.
+                //  • the t_inverse_table.
+                final ArrayList<LinkedHashSet<BitSet>> psi_f = new ArrayList<>(f.arity);
+                final ArrayList<LinkedHashSet<BitSet>> phi_f = new ArrayList<>(f.arity);
+                final ArrayList<LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>>> t_inverse_table_f = new ArrayList<>();
+                for (int j = 0; j < f.arity; j++) {
+                    psi_f.add(j, new LinkedHashSet<>());
+                    phi_f.add(j, new LinkedHashSet<>());
+                    t_inverse_table_f.add(j, new LinkedHashMap<>());
+                }
+                psi.put(f, psi_f);
+                phi.put(f, phi_f);
+                t_inverse_table.put(f, t_inverse_table_f);
+            }
+        }
+        // endregion
+        // region main
+        final ArrayList<LinkedHashSet<String>> qdnew = new ArrayList<>(qd);
+        final LinkedHashSet<LinkedHashSet<String>> qdnew_1 = new LinkedHashSet<>();
+        while (!qdnew.isEmpty()) {
+            qdnew_1.clear();
+            for (final FuncSymb f : this.indices_a.constructors) {
+                if (f.arity > 0) {
+                    // Initialise the Phi and Psi tuples.
+                    final ArrayList<LinkedHashSet<BitSet>> psi_f = psi.get(f);
+                    final ArrayList<LinkedHashSet<BitSet>> phi_f = phi.get(f);
+                    for (int j = 0; j < f.arity; j++) {
+                        final LinkedHashSet<BitSet> phi_f_j = new LinkedHashSet<>();
+                        for(final LinkedHashSet<String> qs : qdnew) {
+                            // region lhs_set
+                            final BitSet h = DeterminiserTextBook.or_all(indices_b, new BitSet(this.indices_a.transitions.size()), qs, f, j);
+                            // Tabulate result for the t_inverse function.
+                            if (!h.isEmpty()) {
+                                final LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>> hm = t_inverse_table.get(f).get(j);
+                                if (!hm.containsKey(h)) {
+                                    hm.put(h, new LinkedHashSet<>());
+                                }
+                                hm.get(h).add(qs);
+                            }
+                            // endregion
+                            if (!h.isEmpty()) {
+                                phi_f_j.add(h);
+                            }
+                        }
+                        // Remove sets already computed for jth argument.
+                        phi_f_j.removeAll(psi_f.get(j));
+                        phi_f.set(j, phi_f_j);
+                    }
+                    for (int j = 0; j < f.arity; j++) {
+                        // if size of phi_f[j] = 0 then prod will be 0
+                        if (phi_f.get(j).size() > 0) {
+                            final ArrayList<ArrayList<BitSet>> psi_phi_tuple = new ArrayList<>();
+                            for (int k = 0; k < f.arity; k++) {
+                                if (k < j) {
+                                    psi_phi_tuple.add(k, new ArrayList<>(psi_f.get(k)));
+                                } else if (k == j) {
+                                    psi_phi_tuple.add(k, new ArrayList<>(phi_f.get(j)));
+                                } else {
+                                    psi_phi_tuple.add(k, new ArrayList<>(phi_f.get(k)));
+                                    psi_phi_tuple.get(k).addAll(psi_f.get(k));
+                                }
+                            }
+                            int prod = 1;
+                            for (int k = 0; k < f.arity; k++) {
+                                prod = prod * psi_phi_tuple.get(k).size();
+                            }
+                            // enumerate the delta-tuples (cartesian product)
+                            for (int k = 0; k < prod; k++) {
+                                int temp = k;
+                                // Re-initialise delta-tuple
+                                final ArrayList<BitSet> deltatuple = new ArrayList<>();
+                                for (int m = 0; m < f.arity; m++) {
+                                    final int z = psi_phi_tuple.get(m).size();
+                                    deltatuple.add(m, psi_phi_tuple.get(m).get(temp % z));
+                                    temp = temp / z;
+                                }
+                                final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(indices_b, DeterminiserTextBook.and_all(deltatuple));
+                                if (!q0.isEmpty()) {
+                                    if (qd.add(q0)) {
+                                        qdnew_1.add(q0);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    for (int j = 0; j < f.arity; j++) {
+                        psi_f.get(j).addAll(phi_f.get(j));
+                    }
+                }
+            }
+            qdnew.clear();
+            qdnew.addAll(qdnew_1);
+        }
+        // endregion
+        // endregion
+        // region transitions
+        for (final FuncSymb f : this.indices_a.constructors) {
+            if (f.arity == 0) {
+                final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(indices_b, indices_b.f_index.get(f));
+                if (!q0.isEmpty()) {
+                    delta_p.add(new PTransition(f, q0, new ArrayList<>()));
+                }
+            } else {
+                final ArrayList<ArrayList<BitSet>> psi_tuple = new ArrayList<>();
+                final ArrayList<BitSet> deltatuple = new ArrayList<>();
+                // Initialise delta-tuple and psi-tuple.
+                for (int j = 0; j < f.arity; j++) {
+                    psi_tuple.add(j, new ArrayList<>(psi.get(f).get(j)));
+                    deltatuple.add(j, new BitSet(this.indices_a.transitions.size()));
+                }
+                int prod = 1;
+                for (int j = 0; j < f.arity; j++) {
+                    prod = prod * psi_tuple.get(j).size();
+                }
+                for (int j = 0; j < prod; j++) {
+                    int temp = j;
+                    for (int k = 0; k < f.arity; k++) {
+                        final int z = psi_tuple.get(k).size();
+                        deltatuple.set(k, psi_tuple.get(k).get(temp % z));
+                        temp = temp / z;
+                    }
+                    final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(indices_b, DeterminiserTextBook.and_all(deltatuple));
+                    if (!q0.isEmpty()) {
+                        final ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs = new ArrayList<>();
+                        for (int m = 0; m < f.arity; m++) {
+                            lhs.add(m, t_inverse_table.get(f).get(m).get(deltatuple.get(m)));
+                        }
+                        delta_p.add(new PTransition(f, q0, lhs));
+                    }
+                }
+            }
+        }
+        // endregion
     }
     // endregion
 
     // region solver
-    public boolean makeDfta(boolean states_only, IncludesProps includes) {
-        // region prepare
-        final boolean result;
-        final LinkedHashMap<FuncSymb, ArrayList<LinkedHashSet<BitSet>>> psi = new LinkedHashMap<>();
-        // endregion
-        // region states
-        outer: for(;;) {
-            // region init
-            final LinkedHashMap<FuncSymb, ArrayList<LinkedHashSet<BitSet>>> phi = new LinkedHashMap<>();
-            for (final FuncSymb f : indices_a.constructors) {
-                if (f.arity == 0) {
-                    final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(idx, idx.f_index.get(f));
-                    if (!q0.isEmpty()) {
-                        qd.add(q0);
-                        // region includes check
-                        if (includes != null) {
-                            if (!inclusionCheckState(q0, includes.q1, includes.q2)) {
-                                result = false;
-                                break outer;
-                            }
-                        }
-                        // endregion
-                    }
-                } else {
-                    // region Initialise
-                    //  • Psi_1 ... Psi_n
-                    //  • Phi_1 ... Phi_n for each f/n.
-                    //  • the t_inverse_table.
-                    final ArrayList<LinkedHashSet<BitSet>> psi_f = new ArrayList<>(f.arity);
-                    final ArrayList<LinkedHashSet<BitSet>> phi_f = new ArrayList<>(f.arity);
-                    final ArrayList<LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>>> t_inverse_table_f = new ArrayList<>();
-                    for (int j = 0; j < f.arity; j++) {
-                        psi_f.add(j, new LinkedHashSet<>());
-                        phi_f.add(j, new LinkedHashSet<>());
-                        t_inverse_table_f.add(j, new LinkedHashMap<>());
-                    }
-                    psi.put(f, psi_f);
-                    phi.put(f, phi_f);
-                    t_inverse_table.put(f, t_inverse_table_f);
-                    // endregion
-                }
-            }
-            // endregion
-            // region main
-            final ArrayList<LinkedHashSet<String>> qdnew = new ArrayList<>(qd);
-            final LinkedHashSet<LinkedHashSet<String>> qdnew_1 = new LinkedHashSet<>();
-            while (!qdnew.isEmpty()) {
-                qdnew_1.clear();
-                for (final FuncSymb f : indices_a.constructors) {
-                    if (f.arity > 0) {
-                        // Initialise the Phi and Psi tuples.
-                        final ArrayList<LinkedHashSet<BitSet>> psi_f = psi.get(f);
-                        final ArrayList<LinkedHashSet<BitSet>> phi_f = phi.get(f);
-                        for (int j = 0; j < f.arity; j++) {
-                            final LinkedHashSet<BitSet> phi_f_j = new LinkedHashSet<>();
-                            for(final LinkedHashSet<String> qs : qdnew) {
-                                // region lhs_set
-                                final BitSet h = DeterminiserTextBook.or_all(idx, new BitSet(indices_a.transitions.size()), qs, f, j);
-                                // Tabulate result for the t_inverse function.
-                                if (!h.isEmpty()) {
-                                    final LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>> hm = t_inverse_table.get(f).get(j);
-                                    if (!hm.containsKey(h)) {
-                                        hm.put(h, new LinkedHashSet<>());
-                                    }
-                                    hm.get(h).add(qs);
-                                }
-                                // endregion
-                                if (!h.isEmpty()) {
-                                    phi_f_j.add(h);
-                                }
-                            }
-                            // Remove sets already computed for jth argument.
-                            phi_f_j.removeAll(psi_f.get(j));
-                            phi_f.set(j, phi_f_j);
-                        }
-                        for (int j = 0; j < f.arity; j++) {
-                            // if size of phi_f[j] = 0 then prod will be 0
-                            if (phi_f.get(j).size() > 0) {
-                                final ArrayList<ArrayList<BitSet>> psi_phi_tuple = new ArrayList<>();
-                                for (int k = 0; k < f.arity; k++) {
-                                    if (k < j) {
-                                        psi_phi_tuple.add(k, new ArrayList<>(psi_f.get(k)));
-                                    } else if (k == j) {
-                                        psi_phi_tuple.add(k, new ArrayList<>(phi_f.get(j)));
-                                    } else {
-                                        psi_phi_tuple.add(k, new ArrayList<>(phi_f.get(k)));
-                                        psi_phi_tuple.get(k).addAll(psi_f.get(k));
-                                    }
-                                }
-                                int prod = 1;
-                                for (int k = 0; k < f.arity; k++) {
-                                    prod = prod * psi_phi_tuple.get(k).size();
-                                }
-                                // enumerate the delta-tuples (cartesian product)
-                                for (int k = 0; k < prod; k++) {
-                                    int temp = k;
-                                    // Re-initialise delta-tuple
-                                    final ArrayList<BitSet> deltatuple = new ArrayList<>();
-                                    for (int m = 0; m < f.arity; m++) {
-                                        final int z = psi_phi_tuple.get(m).size();
-                                        deltatuple.add(m, psi_phi_tuple.get(m).get(temp % z));
-                                        temp = temp / z;
-                                    }
-                                    final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(idx, DeterminiserTextBook.and_all(deltatuple));
-                                    if (!q0.isEmpty()) {
-                                        if (qd.add(q0)) {
-                                            qdnew_1.add(q0);
-                                            // region includes check
-                                            if (includes != null) {
-                                                if (!inclusionCheckState(q0, includes.q1, includes.q2)) {
-                                                    result = false;
-                                                    break outer;
-                                                }
-                                            }
-                                            // endregion
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        for (int j = 0; j < f.arity; j++) {
-                            psi_f.get(j).addAll(phi_f.get(j));
-                        }
-                    }
-                }
-                qdnew.clear();
-                qdnew.addAll(qdnew_1);
-            }
-            // endregion
-            // region result
-            result = true;
-            break outer;
-            // endregion
-        }
-        // endregion
-        // region dfta transitions
-        if (!states_only) {
-            for (final FuncSymb f : indices_a.constructors) {
-                if (f.arity == 0) {
-                    final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(idx, idx.f_index.get(f));
-                    if (!q0.isEmpty()) {
-                        deltad.add(new PTransition(f, q0, new ArrayList<>()));
-                    }
-                } else {
-                    final ArrayList<ArrayList<BitSet>> psi_tuple = new ArrayList<>();
-                    final ArrayList<BitSet> deltatuple = new ArrayList<>();
-                    // Initialise delta-tuple and psi-tuple.
-                    for (int j = 0; j < f.arity; j++) {
-                        psi_tuple.add(j, new ArrayList<>(psi.get(f).get(j)));
-                        deltatuple.add(j, new BitSet(indices_a.transitions.size()));
-                    }
-                    int prod = 1;
-                    for (int j = 0; j < f.arity; j++) {
-                        prod = prod * psi_tuple.get(j).size();
-                    }
-                    for (int j = 0; j < prod; j++) {
-                        int temp = j;
-                        for (int k = 0; k < f.arity; k++) {
-                            final int z = psi_tuple.get(k).size();
-                            deltatuple.set(k, psi_tuple.get(k).get(temp % z));
-                            temp = temp / z;
-                        }
-                        final LinkedHashSet<String> q0 = DeterminiserTextBook.rhs_set(idx, DeterminiserTextBook.and_all(deltatuple));
-                        if (!q0.isEmpty()) {
-                            final ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs = new ArrayList<>();
-                            for (int m = 0; m < f.arity; m++) {
-                                lhs.add(m, t_inverse_table.get(f).get(m).get(deltatuple.get(m)));
-                            }
-                            deltad.add(new PTransition(f, q0, lhs));
-                        }
-                    }
-                }
-            }
-        }
-        // endregion
-        return result;
-    }
-
-    boolean intersectsAll(BitSet deltaj, int j, FuncSymb f, ArrayList<ArrayList<BitSet>> psi_tuple) {
-        // Check whether deltaj intersects with all members of all non-j elements of psi_tuple.
-        for (int k = 0; k < f.arity; k++) {
-            if (k != j) {
-                if (psi_tuple.get(k).isEmpty()) {
-                    return false;
-                } else {
-                    for (int l = 0; l < psi_tuple.get(k).size(); l++) {
-                        final BitSet ts = (BitSet) deltaj.clone();
-                        ts.and(psi_tuple.get(k).get(l));
-                        if (ts.isEmpty()) {
-                            return false;
-                        }
-                    }
-                }
-            }
-        }
-        return true;
-    }
-
-    public boolean inclusionCheckState(LinkedHashSet<String> q0, LinkedHashSet<String> q1, LinkedHashSet<String> q2) {
-        // Check inclusion between states in the input FTA.
-        boolean includes = true;
-        for (final String x : q1) {
-            if (q0.contains(x)) {
-                boolean b = false;
-                final Iterator<String> qiter2 = q2.iterator();
-                while (qiter2.hasNext() && !b) {
-                    if (q0.contains(qiter2.next())) {
-                        b = true;
-                    }
-                }
-                includes = includes && b;
-            }
-        }
-        return includes;
-    }
-
     private int equivClass(ArrayList<LinkedHashSet<LinkedHashSet<String>>> p, LinkedHashSet<String> q) {
         int i = 0;
         int n = p.size();
@@ -251,7 +180,7 @@ public class DeterminiserOpt {
     public long deltaDCount() {
         double count = 0;
         double qdsize = qd.size();
-        for (final PTransition deltad1 : deltad) {
+        for (final PTransition deltad1 : delta_p) {
             double tcount = 1.0;
             for (final LinkedHashSet<LinkedHashSet<String>> lh : deltad1.lhs) {
                 double argsize = lh.size();
@@ -287,7 +216,7 @@ public class DeterminiserOpt {
             }
         }
         // For all (σ, i1, . . . , im) ∈ Δ add (σ,m, k) to sig(ik) for k = 1, . . . , m.
-        for (final PTransition t : data.deltad) {
+        for (final PTransition t : data.delta_p) {
             for (int i = 0; i < t.f.arity; i++) {
                 LinkedHashSet<LinkedHashSet<String>> qis = t.lhs.get(i);
                 for (LinkedHashSet<String> qi : qis) {
@@ -297,7 +226,7 @@ public class DeterminiserOpt {
         }
         // Create a map from Sigma to Delta_d
         final LinkedHashMap<FuncSymb, LinkedHashSet<PTransition>> deltadMap = new LinkedHashMap<>();
-        for (PTransition t : data.deltad) {
+        for (PTransition t : data.delta_p) {
             if (!deltadMap.containsKey(t.f)) {
                 deltadMap.put(t.f, new LinkedHashSet<>());
             }
@@ -420,15 +349,6 @@ public class DeterminiserOpt {
     // endregion
 }
 
-class IncludesProps {
-    final LinkedHashSet<String> q1;
-    final LinkedHashSet<String> q2;
-
-    public IncludesProps(LinkedHashSet<String> q1, LinkedHashSet<String> q2) {
-        this.q1 = q1;
-        this.q2 = q2;
-    }
-}
 
 class PTransition {
     final FuncSymb f;

@@ -28,28 +28,6 @@ public class Driver {
 //                    final File file = new File("/Users/modulovalue/Desktop/DFTA/examples/AEXP")).FTA();
                     run(file);
                 }
-                case "includes" -> {
-                    final long startTime = System.currentTimeMillis();
-                    final String inputFile1 = "/Users/modulovalue/Desktop/DFTA/examples/A0053";
-//                    final String inputFile2 = "/Users/modulovalue/Desktop/DFTA/examples/A0053";
-                    final String inputFile2 = "/Users/modulovalue/Desktop/DFTA/examples/A0054";
-                    final var fta1 = new FTAParser(new java.io.FileInputStream(inputFile1)).FTA();
-                    final var fta2 = new FTAParser(new java.io.FileInputStream(inputFile2)).FTA();
-                    final var idx1_a = new IndicesA(fta1, inputFile1, 0, false);
-                    final var idx2_a = new IndicesA(fta2, inputFile2, fta1.transitions.size(), false);
-                    final IndicesA idx_final = new IndicesA(fta1, inputFile1, 0, false);
-                    idx_final.transitions.addAll(idx2_a.transitions);
-                    idx_final.states.addAll(idx2_a.states);
-                    final long midTime = System.currentTimeMillis();
-                    final DeterminiserOpt det = new DeterminiserOpt(new IndicesB(idx_final), idx_final);
-                    boolean b = det.makeDfta(true, new IncludesProps(idx1_a.final_states, idx2_a.final_states));
-                    final long endTime = System.currentTimeMillis();
-                    System.out.println("Input file 1 = " + inputFile1 + ",");
-                    System.out.println("Input file 2 = " + inputFile2 + ",");
-                    System.out.println("Result = " + b + ",");
-                    System.out.println("File input time = " + ((midTime - startTime) / 1000.0) + ",");
-                    System.out.println("Inclusion checking Time = " + ((endTime - midTime) / 1000.0) + ",");
-                }
             }
         } catch (FileNotFoundException | ParseException e) {
             System.out.println(e.getMessage());
@@ -68,8 +46,7 @@ public class Driver {
 //        switch ("tb") {
             case "opt" -> {
                 final DeterminiserOpt det = new DeterminiserOpt(indices_b, indices_a);
-                det.makeDfta(false, null);
-                System.out.println("Number of DFTA states/normal transitions/product transitions = " + det.qd.size() + "/" + det.deltaDCount() + "/" + det.deltad.size());
+                System.out.println("Number of DFTA states/normal transitions/product transitions = " + det.qd.size() + "/" + det.deltaDCount() + "/" + det.delta_p.size());
             }
             case "tb" -> {
                 final DeterminiserTextBook det = new DeterminiserTextBook(indices_b, indices_a);
