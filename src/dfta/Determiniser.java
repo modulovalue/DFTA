@@ -10,10 +10,10 @@ import java.util.LinkedHashSet;
 
 public class Determiniser {
     // https://arxiv.org/abs/1511.03595
-    // - don cares could reduce the amount of product transitions, see git history.
+    // - "don't cares" could reduce the amount of product transitions, see git history.
     // - this could support inclusion testing, see git history.
     // - this approach might be able to be used for more efficient minimization, see git history.
-    public static DeterminiserResultP gallagher_product(final Index index) {
+    public static DeterminiserResultP powerset_with_reduction_and_gallagher(final Index index) {
         final LinkedHashSet<LinkedHashSet<String>> q_d = new LinkedHashSet<>();
         final ArrayList<PTransition> delta_p = new ArrayList<>();
         // region states
@@ -161,8 +161,10 @@ public class Determiniser {
         return new DeterminiserResultP(q_d, delta_p);
     }
 
-    // https://jacquema.gitlabpages.inria.fr/files/tata.pdf
-    public static DeterminiserResultD tata(final Index index) {
+    // "TextBook": https://arxiv.org/abs/1511.03595
+    // TATA: https://jacquema.gitlabpages.inria.fr/files/tata.pdf
+    // Page 26: https://www21.in.tum.de/~lammich/2015_SS_Automata2/slides/handout.pdf
+    public static DeterminiserResultD powerset_with_reduction(final Index index) {
         final LinkedHashSet<LinkedHashSet<String>> q_d = new LinkedHashSet<>();
         final LinkedHashSet<DTransition> delta_d = new LinkedHashSet<>();
         for (;;) {
@@ -201,6 +203,11 @@ public class Determiniser {
             }
         }
         return new DeterminiserResultD(q_d, delta_d);
+    }
+
+    // Page 25 https://www21.in.tum.de/~lammich/2015_SS_Automata2/slides/handout.pdf
+    public static DeterminiserResultD powerset(final Index index) throws Exception {
+        throw new Exception("TODO");
     }
 
     private static BitSet or_all(final IndicesB idx, final BitSet init, final Iterable<String> qs, final Symbol f, final int j) {
@@ -353,8 +360,8 @@ class IndicesA {
 }
 
 class IndicesB {
-    final LinkedHashMap<Symbol, BitSet> f_index = new LinkedHashMap<>();
     final LinkedHashMap<Integer, Transition> transition_by_id = new LinkedHashMap<>();
+    final LinkedHashMap<Symbol, BitSet> f_index = new LinkedHashMap<>();
     final LinkedHashMap<Symbol, ArrayList<LinkedHashMap<String, BitSet>>> lhs_f = new LinkedHashMap<>();
     final LinkedHashMap<String, LinkedHashMap<Symbol, LinkedHashSet<Integer>>> rhs_idx = new LinkedHashMap<>();
     final LinkedHashMap<Symbol, LinkedHashSet<Integer>> rhs_f_idx = new LinkedHashMap<>();
