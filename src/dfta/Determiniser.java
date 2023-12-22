@@ -3,10 +3,7 @@ package dfta;
 import dfta.parser.TAModel;
 import dfta.parser.TAModelTransition;
 
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
+import java.util.*;
 
 public class Determiniser {
     // https://arxiv.org/abs/1511.03595
@@ -20,14 +17,14 @@ public class Determiniser {
         final LinkedHashMap<Symb, ArrayList<LinkedHashSet<BitSet>>> Ψ = new LinkedHashMap<>();
         final LinkedHashMap<Symb, ArrayList<LinkedHashSet<BitSet>>> Φ = new LinkedHashMap<>();
         final LinkedHashMap<Symb, ArrayList<LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>>>> Tinverse = new LinkedHashMap<>();
-        for (final Symb f : index.a.constants) {
+        for (final Symb f : index.b.constants) {
             final BitSet Δ_set = index.b.f_index.get(f);
             final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
             if (!Q0.isEmpty()) {
                 Qd.add(Q0);
             }
         }
-        for (final Symb f : index.a.inconstants) {
+        for (final Symb f : index.b.inconstants) {
             final ArrayList<LinkedHashSet<BitSet>> Ψ_f = new ArrayList<>(f.arity);
             final ArrayList<LinkedHashSet<BitSet>> Φ_f = new ArrayList<>(f.arity);
             final ArrayList<LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>>> Tinverse_f = new ArrayList<>();
@@ -46,14 +43,15 @@ public class Determiniser {
         final LinkedHashSet<LinkedHashSet<String>> Qd_sentinel = new LinkedHashSet<>();
         while (!Qd_temp.isEmpty()) {
             Qd_sentinel.clear();
-            for (final Symb f : index.a.inconstants) {
+            for (final Symb f : index.b.inconstants) {
+                final ArrayList<LinkedHashMap<String, BitSet>> lhs_f_f = index.b.lhs_f.get(f);
                 final ArrayList<LinkedHashSet<BitSet>> Ψ_f = Ψ.get(f);
                 final ArrayList<LinkedHashSet<BitSet>> Φ_f = Φ.get(f);
                 for (int j = 0; j < f.arity; j++) {
                     final LinkedHashSet<BitSet> Φ_f_j = new LinkedHashSet<>();
                     for (final LinkedHashSet<String> qs : Qd_temp) {
                         // region lhs_set
-                        final BitSet h = or_all(index.b, new BitSet(index.a.transitions.size()), qs, f, j);
+                        final BitSet h = or_all(new BitSet(index.a.Δ.size()), qs, lhs_f_f, j);
                         // Tabulate result for the t_inverse function.
                         if (!h.isEmpty()) {
                             final LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>> hm = Tinverse.get(f).get(j);
@@ -119,14 +117,14 @@ public class Determiniser {
         // endregion
         // region transitions
         final ArrayList<PTransition> Δp = new ArrayList<>();
-        for (final Symb f : index.a.constants) {
+        for (final Symb f : index.b.constants) {
             final BitSet Δ_set = index.b.f_index.get(f);
             final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
             if (!Q0.isEmpty()) {
                 Δp.add(new PTransition(f, Q0, new ArrayList<>()));
             }
         }
-        for (final Symb f : index.a.inconstants) {
+        for (final Symb f : index.b.inconstants) {
             int prod = 1;
             for (int m = 0; m < f.arity; m++) {
                 prod = prod * Ψ.get(f).get(m).size();
@@ -136,7 +134,7 @@ public class Determiniser {
             for (int m = 0; m < f.arity; m++) {
                 final LinkedHashSet<BitSet> Ψ_f_m = Ψ.get(f).get(m);
                 Ψ_tuple.add(m, new ArrayList<>(Ψ_f_m));
-                Δ_tuple.add(m, new BitSet(index.a.transitions.size()));
+                Δ_tuple.add(m, new BitSet(index.a.Δ.size()));
             }
             for (int j = 0; j < prod; j++) {
                 int temp = j;
@@ -176,7 +174,7 @@ public class Determiniser {
             boolean new_transition = false;
             final ArrayList<LinkedHashSet<String>> Qd_prev = new ArrayList<>(Qd);
             final int Qd_size = Qd_prev.size();
-            for (Symb f : index.a.constants) {
+            for (Symb f : index.b.constants) {
                 final BitSet Δ_set = index.b.f_index.get(f);
                 final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
                 if (!Q0.isEmpty()) {
@@ -184,7 +182,8 @@ public class Determiniser {
                     new_transition |= Δd.add(new DTransition(f, Q0, new ArrayList<>()));
                 }
             }
-            for (Symb f : index.a.inconstants) {
+            for (Symb f : index.b.inconstants) {
+                final ArrayList<LinkedHashMap<String, BitSet>> lhs_f_f = index.b.lhs_f.get(f);
                 final double target_k = Math.pow(Qd_size, f.arity);
                 for (int k = 0; k < target_k; k++) { // Enumerate the delta-tuples.
                     int temp = k;
@@ -196,7 +195,7 @@ public class Determiniser {
                     }
                     final ArrayList<BitSet> Δ_tuple = new ArrayList<>();
                     for (int m = 0; m < f.arity; m++) {
-                        BitSet result = or_all(index.b, new BitSet(), Q_tuple.get(m), f, m);
+                        BitSet result = or_all(new BitSet(), Q_tuple.get(m), lhs_f_f, m);
                         Δ_tuple.add(m, result);
                     }
                     final BitSet Δ_set = and_all(Δ_tuple);
@@ -232,8 +231,8 @@ public class Determiniser {
         // endregion
     }
 
-    private static BitSet or_all(final IndicesB idx, final BitSet init, final Iterable<String> qs, final Symb f, final int j) {
-        final LinkedHashMap<String, BitSet> lhs_map = idx.lhs_f.get(f).get(j);
+    private static BitSet or_all(final BitSet init, final Iterable<String> qs, final ArrayList<LinkedHashMap<String, BitSet>> lhs_f_f, final int j) {
+        final LinkedHashMap<String, BitSet> lhs_map = lhs_f_f.get(j);
         for (final String q : qs) {
             if (lhs_map.containsKey(q)) {
                 init.or(lhs_map.get(q));
@@ -285,7 +284,8 @@ class DeterminiserResultP {
             double t_count = 1.0;
             for (final LinkedHashSet<LinkedHashSet<String>> lh : Δp_1.args) {
                 double arg_size = lh.size();
-                if (arg_size == 0) arg_size = Qd_size;  // Don't care argument.
+                // Don't care argument.
+                if (arg_size == 0) arg_size = Qd_size;
                 t_count = t_count * arg_size;
             }
             count = count + t_count;
@@ -346,44 +346,39 @@ class Index {
 }
 
 class IndicesA {
-    final LinkedHashSet<Transition> transitions = new LinkedHashSet<>();
-    final LinkedHashSet<String> states = new LinkedHashSet<>();
-    final LinkedHashSet<String> final_states = new LinkedHashSet<>();
-    final LinkedHashSet<Symb> symbs = new LinkedHashSet<>();
-    final LinkedHashSet<Symb> constants = new LinkedHashSet<>();
-    final LinkedHashSet<Symb> inconstants = new LinkedHashSet<>();
+    final LinkedHashSet<String> Q = new LinkedHashSet<>();
+    final LinkedHashSet<String> Qf = new LinkedHashSet<>();
+    final LinkedHashSet<Symb> Σ = new LinkedHashSet<>();
+    final LinkedHashSet<Transition> Δ = new LinkedHashSet<>();
 
     public IndicesA(final TAModel data, final boolean complete) {
+        // region transitions
         int cur_transition_id = 0;
         // region init delta
         for (final TAModelTransition transition : data.transitions) {
             final ArrayList<String> args = new ArrayList<>(transition.args);
             final Symb fn = new Symb(transition.fname, transition.args.size());
-            symbs.add(fn);
-            if (fn.arity == 0) {
-                constants.add(fn);
-            } else {
-                inconstants.add(fn);
-            }
-            states.add(transition.q);
-            transitions.add(new Transition(fn, transition.q, args, cur_transition_id));
+            Σ.add(fn);
+            Q.add(transition.q);
+            Δ.add(new Transition(fn, transition.q, args, cur_transition_id));
             cur_transition_id++;
         }
         // endregion
         // region complete delta
         if (complete) {
-            for (final Symb f : symbs) {
+            for (final Symb f : Σ) {
                 final ArrayList<String> args = new ArrayList<>();
                 for (int j = 0; j < f.arity; j++) {
                     args.add(j, "'$any'");
                 }
-                transitions.add(new Transition(f, "'$any'", args, cur_transition_id));
+                Δ.add(new Transition(f, "'$any'", args, cur_transition_id));
                 cur_transition_id++;
             }
         }
         // endregion
+        // endregion
         // region final states
-        final_states.addAll(data.final_states);
+        Qf.addAll(data.final_states);
         // endregion
     }
 }
@@ -392,25 +387,25 @@ class IndicesB {
     final LinkedHashMap<Integer, Transition> transition_by_id = new LinkedHashMap<>();
     final LinkedHashMap<Symb, BitSet> f_index = new LinkedHashMap<>();
     final LinkedHashMap<Symb, ArrayList<LinkedHashMap<String, BitSet>>> lhs_f = new LinkedHashMap<>();
-    final LinkedHashMap<String, LinkedHashMap<Symb, LinkedHashSet<Integer>>> rhs_idx = new LinkedHashMap<>();
-    final LinkedHashMap<Symb, LinkedHashSet<Integer>> rhs_f_idx = new LinkedHashMap<>();
+    final LinkedHashSet<Symb> constants = new LinkedHashSet<>();
+    final LinkedHashSet<Symb> inconstants = new LinkedHashSet<>();
 
     public IndicesB(final IndicesA indices_a) {
         // region transition_by_id
-        for (final Transition t : indices_a.transitions) {
+        for (final Transition t : indices_a.Δ) {
             transition_by_id.put(t.m, t);
         }
         // endregion
         // region f_index
-        for (final Transition t : indices_a.transitions) {
+        for (final Transition t : indices_a.Δ) {
             if (!f_index.containsKey(t.f)) {
-                f_index.put(t.f, new BitSet(indices_a.transitions.size()));
+                f_index.put(t.f, new BitSet(indices_a.Δ.size()));
             }
             f_index.get(t.f).set(t.m);  // Set the bit for the mth transition.
         }
         // endregion
         // region lhs_f
-        for (final Transition t : indices_a.transitions) {
+        for (final Transition t : indices_a.Δ) {
             int arity = t.f.arity;
             if (!lhs_f.containsKey(t.f)) {
                 lhs_f.put(t.f, new ArrayList<>());
@@ -423,29 +418,19 @@ class IndicesB {
             for (int i = 0; i < arity; i++) {
                 final String q = args.get(i);
                 if (!qmap.get(i).containsKey(q)) {
-                    qmap.get(i).put(q, new BitSet(indices_a.transitions.size()));
+                    qmap.get(i).put(q, new BitSet(indices_a.Δ.size()));
                 }
                 qmap.get(i).get(q).set(t.m);
             }
         }
         // endregion
-        // region rhs_idx
-        for (final Transition t : indices_a.transitions) {
-            if (!rhs_idx.containsKey(t.Q0)) {  // Keep index for rhs states.
-                rhs_idx.put(t.Q0, new LinkedHashMap<>());
+        // region transition constants/inconstants
+        for(final Symb s : indices_a.Σ) {
+            if (s.arity == 0) {
+                constants.add(s);
+            } else {
+                inconstants.add(s);
             }
-            if (!rhs_idx.get(t.Q0).containsKey(t.f)) {
-                rhs_idx.get(t.Q0).put(t.f, new LinkedHashSet<>());
-            }
-            rhs_idx.get(t.Q0).get(t.f).add(t.m);
-        }
-        // endregion
-        // region rhs_f_idx
-        for (final Transition t : indices_a.transitions) {
-            if (!rhs_f_idx.containsKey(t.f)) {
-                rhs_f_idx.put(t.f, new LinkedHashSet<>());
-            }
-            rhs_f_idx.get(t.f).add(t.m);
         }
         // endregion
     }

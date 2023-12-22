@@ -21,9 +21,9 @@ public class Driver {
                 }
                 case "one" -> {
 //                    final File file = new File(example_root + "A0053");
-//                    final File file = new File(example_root + "A0063");
+                    final File file = new File(example_root + "A0063");
 //                    final File file = new File(example_root + "A493");
-                    final File file = new File(example_root + "A620");
+//                    final File file = new File(example_root + "A620");
                     run(file);
                 }
             }
@@ -37,9 +37,9 @@ public class Driver {
         final Index index = new Index(new FTAParser(new java.io.FileInputStream(file.getPath())).FTA(), true);
         final long midTime = System.currentTimeMillis();
         System.out.println("=== Determinising: " + file.getAbsolutePath() + " ===");
-        System.out.println("Number of input FTA states/transitions = " + index.a.states.size() + "/" + index.a.transitions.size());
-        switch ("gallagher_product") {
-//        switch ("tata") {
+        System.out.println("Number of input FTA states/transitions = " + index.a.Q.size() + "/" + index.a.Δ.size());
+//        switch ("gallagher_product") {
+        switch ("tata") {
 //        switch ("powerset") {
             case "gallagher_product" -> {
                 final var det = Determiniser.powerset_with_reduction_and_gallagherproducttransitions(index);
