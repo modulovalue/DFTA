@@ -13,7 +13,6 @@ public class Driver {
         try {
 //            switch ("all") {
             switch ("one") {
-//            switch ("includes") {
                 case "all" -> {
                     final File[] files = new File("/Users/modulovalue/Desktop/DFTA/examples").listFiles();
                     for (final File file : Arrays.stream(files).sorted().toList()) {
@@ -25,7 +24,6 @@ public class Driver {
 //                    final File file = new File("/Users/modulovalue/Desktop/flutter_mindmap/pkgs/flutter_companion/layer0/humanspec/lib/parser/sine/hele/ta/examples/A0063");
                     final File file = new File("/Users/modulovalue/Desktop/flutter_mindmap/pkgs/flutter_companion/layer0/humanspec/lib/parser/sine/hele/ta/examples/A493");
 //                    final File file = new File("/Users/modulovalue/Desktop/flutter_mindmap/pkgs/flutter_companion/layer0/humanspec/lib/parser/sine/hele/ta/examples/A620");
-//                    final File file = new File("/Users/modulovalue/Desktop/DFTA/examples/AEXP")).FTA();
                     run(file);
                 }
             }
@@ -35,26 +33,24 @@ public class Driver {
     }
 
     static void run(final File file) throws FileNotFoundException, ParseException {
-        final TAModel data = new FTAParser(new java.io.FileInputStream(file.getPath())).FTA();
-        final long startTime = System.currentTimeMillis();
-        final IndicesA indices_a = new IndicesA(data, "id", 0, true);
-        final IndicesB indices_b = new IndicesB(indices_a);
+        final long start_time = System.currentTimeMillis();
+        final Index index = new Index(new FTAParser(new java.io.FileInputStream(file.getPath())).FTA(), true);
         final long midTime = System.currentTimeMillis();
         System.out.println("=== Determinising: " + file.getAbsolutePath() + " ===");
-        System.out.println("Number of input FTA states/transitions = " + indices_a.states.size() + "/" + indices_a.transitions.size());
-        switch ("opt") {
-//        switch ("tb") {
-            case "opt" -> {
-                final DeterminiserOpt det = new DeterminiserOpt(indices_b, indices_a);
-                System.out.println("Number of DFTA states/normal transitions/product transitions = " + det.qd.size() + "/" + det.deltaDCount() + "/" + det.delta_p.size());
+        System.out.println("Number of input FTA states/transitions = " + index.a.states.size() + "/" + index.a.transitions.size());
+        switch ("gallagher_product") {
+//        switch ("tata") {
+            case "gallagher_product" -> {
+                final var det = Determiniser.gallagher_product(index);
+                System.out.println("Number of DFTA states/normal transitions/product transitions = " + det.q_d.size() + "/" + det.delta_d_count() + "/" + det.delta_p.size());
             }
-            case "tb" -> {
-                final DeterminiserTextBook det = new DeterminiserTextBook(indices_b, indices_a);
-                System.out.println("Number of DFTA states/transitions = " + det.qd.size() + "/" + det.deltad.size());
+            case "tata" -> {
+                final var det = Determiniser.tata(index);
+                System.out.println("Number of DFTA states/transitions = " + det.q_d.size() + "/" + det.delta_d.size());
             }
         }
         final long endTime = System.currentTimeMillis();
-        System.out.println("File input time = " + ((midTime - startTime) / 1000.0) + ",");
+        System.out.println("File input time = " + ((midTime - start_time) / 1000.0) + ",");
         System.out.println("Determinisation time = " + ((endTime - midTime) / 1000.0) + ",");
     }
 }
