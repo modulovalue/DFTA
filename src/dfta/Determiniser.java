@@ -14,18 +14,16 @@ public class Determiniser {
     // - this could support inclusion testing, see git history.
     // - this approach might be able to be used for more efficient minimization, see git history.
     public static DeterminiserResultP powerset_with_reduction_and_gallagherproducttransitions(final Index index) {
-        // region prepare
-        final LinkedHashSet<LinkedHashSet<String>> Qd = new LinkedHashSet<>();
-        final ArrayList<PTransition> Δp = new ArrayList<>();
-        // endregion
         // region states
         // region init
+        final LinkedHashSet<LinkedHashSet<String>> Qd = new LinkedHashSet<>();
         final LinkedHashMap<Symb, ArrayList<LinkedHashSet<BitSet>>> Ψ = new LinkedHashMap<>();
         final LinkedHashMap<Symb, ArrayList<LinkedHashSet<BitSet>>> Φ = new LinkedHashMap<>();
         final LinkedHashMap<Symb, ArrayList<LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>>>> t_inverse = new LinkedHashMap<>();
         for (final Symb f : index.a.symbs) {
             if (f.arity == 0) {
-                final LinkedHashSet<String> Q0 = rhs_set(index.b, index.b.f_index.get(f));
+                final BitSet Δ_set = index.b.f_index.get(f);
+                final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
                 if (!Q0.isEmpty()) {
                     Qd.add(Q0);
                 }
@@ -44,7 +42,7 @@ public class Determiniser {
             }
         }
         // endregion
-        // region main
+        // region populate
         final ArrayList<LinkedHashSet<String>> Qd_temp = new ArrayList<>(Qd);
         final LinkedHashSet<LinkedHashSet<String>> Qd_sentinel = new LinkedHashSet<>();
         while (!Qd_temp.isEmpty()) {
@@ -76,11 +74,10 @@ public class Determiniser {
                         Φ_f.set(j, Φ_f_j);
                     }
                     for (int j = 0; j < f.arity; j++) {
-                        // if size of phi_f[j] = 0 then prod will be 0
                         if (Φ_f.get(j).size() > 0) {
                             final ArrayList<ArrayList<BitSet>> Ψ_Φ_tuple = new ArrayList<>();
                             for (int k = 0; k < f.arity; k++) {
-                                if (k < j) { 
+                                if (k < j) {
                                     Ψ_Φ_tuple.add(k, new ArrayList<>(Ψ_f.get(k)));
                                 } else if (k == j) {
                                     Ψ_Φ_tuple.add(k, new ArrayList<>(Φ_f.get(k)));
@@ -103,7 +100,8 @@ public class Determiniser {
                                     Δ_tuple.add(m, Ψ_Φ_tuple.get(m).get(temp % z));
                                     temp = temp / z;
                                 }
-                                final LinkedHashSet<String> Q0 = rhs_set(index.b, and_all(Δ_tuple));
+                                final BitSet Δ_set = and_all(Δ_tuple);
+                                final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
                                 if (!Q0.isEmpty()) {
                                     if (Qd.add(Q0)) {
                                         Qd_sentinel.add(Q0);
@@ -123,9 +121,11 @@ public class Determiniser {
         // endregion
         // endregion
         // region transitions
+        final ArrayList<PTransition> Δp = new ArrayList<>();
         for (final Symb f : index.a.symbs) {
             if (f.arity == 0) {
-                final LinkedHashSet<String> Q0 = rhs_set(index.b, index.b.f_index.get(f));
+                final BitSet Δ_set = index.b.f_index.get(f);
+                final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
                 if (!Q0.isEmpty()) {
                     Δp.add(new PTransition(f, Q0, new ArrayList<>()));
                 }
@@ -147,7 +147,8 @@ public class Determiniser {
                         Δ_tuple.set(k, Ψ_tuple.get(k).get(temp % z));
                         temp = temp / z;
                     }
-                    final LinkedHashSet<String> Q0 = rhs_set(index.b, and_all(Δ_tuple));
+                    final BitSet Δ_set = and_all(Δ_tuple);
+                    final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
                     if (!Q0.isEmpty()) {
                         final ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs = new ArrayList<>();
                         for (int m = 0; m < f.arity; m++) {
@@ -179,14 +180,15 @@ public class Determiniser {
             final int Qd_size = Qd_prev.size();
             for (Symb f : index.a.symbs) {
                 if (f.arity == 0) {
-                    final LinkedHashSet<String> Q0 = rhs_set(index.b, index.b.f_index.get(f));
+                    final BitSet Δ_set = index.b.f_index.get(f);
+                    final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
                     if (!Q0.isEmpty()) {
                         Qd.add(Q0);
                         new_transition |= Δd.add(new DTransition(f, Q0, new ArrayList<>()));
                     }
                 } else {
-                    final double targetK = Math.pow(Qd_size, f.arity);
-                    for (int k = 0; k < targetK; k++) { // Enumerate the delta-tuples.
+                    final double target_k = Math.pow(Qd_size, f.arity);
+                    for (int k = 0; k < target_k; k++) { // Enumerate the delta-tuples.
                         int temp = k;
                         final ArrayList<LinkedHashSet<String>> Q_tuple = new ArrayList<>();
                         final ArrayList<BitSet> Δ_tuple = new ArrayList<>();
@@ -196,7 +198,8 @@ public class Determiniser {
                             Δ_tuple.add(m, result);
                             temp = temp / Qd_size;
                         }
-                        final LinkedHashSet<String> Q0 = rhs_set(index.b, and_all(Δ_tuple));
+                        final BitSet Δ_set = and_all(Δ_tuple);
+                        final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
                         if (!Q0.isEmpty()) {
                             Qd.add(Q0);
                             new_transition |= Δd.add(new DTransition(f, Q0, Q_tuple));
