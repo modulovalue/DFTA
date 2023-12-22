@@ -80,7 +80,7 @@ public class Determiniser {
                         if (Φ_f.get(j).size() > 0) {
                             final ArrayList<ArrayList<BitSet>> Ψ_Φ_tuple = new ArrayList<>();
                             for (int k = 0; k < f.arity; k++) {
-                                if (k < j) {
+                                if (k < j) { 
                                     Ψ_Φ_tuple.add(k, new ArrayList<>(Ψ_f.get(k)));
                                 } else if (k == j) {
                                     Ψ_Φ_tuple.add(k, new ArrayList<>(Φ_f.get(k)));
