@@ -20,9 +20,10 @@ public class Driver {
                     }
                 }
                 case "one" -> {
-//                    final File file = new File(example_root + "A0053");
+                    final File file = new File(example_root + "A0053");
 //                    final File file = new File(example_root + "A0063");
-                    final File file = new File(example_root + "A1003");
+//                    final File file = new File(example_root + "A1003");
+//                    final File file = new File(example_root + "A447");
 //                    final File file = new File(example_root + "A493");
 //                    final File file = new File(example_root + "A620");
                     run(file);
@@ -45,6 +46,7 @@ public class Driver {
             case "gallagher_product" -> {
                 final var det = Determiniser.powerset_with_reduction_and_gallagherproducttransitions(index);
                 System.out.println("Number of DFTA states/normal transitions/product transitions = " + det.Qd.size() + "/" + det.Δd_count() + "/" + det.Δp.size());
+                System.out.println(det.write());
             }
             case "tata" -> {
                 final var det = Determiniser.powerset_with_reduction(index);

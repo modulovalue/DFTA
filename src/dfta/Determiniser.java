@@ -121,14 +121,14 @@ public class Determiniser {
             }
         }
         for (final Symb f : index.b.inconstants) {
+            final ArrayList<LinkedHashSet<BitSet>> Ψ_f = Ψ.get(f);
             int prod = 1;
-            for (int m = 0; m < f.arity; m++) {
-                prod = prod * Ψ.get(f).get(m).size();
-            }
             final ArrayList<ArrayList<BitSet>> Ψ_tuple = new ArrayList<>();
             final ArrayList<BitSet> Δ_tuple = new ArrayList<>();
             for (int m = 0; m < f.arity; m++) {
-                Ψ_tuple.add(m, new ArrayList<>(Ψ.get(f).get(m)));
+                final LinkedHashSet<BitSet> Ψ_f_m = Ψ_f.get(m);
+                prod = prod * Ψ_f_m.size();
+                Ψ_tuple.add(m, new ArrayList<>(Ψ_f_m));
                 Δ_tuple.add(m, new BitSet(index.a.Δ.size()));
             }
             for (int j = 0; j < prod; j++) {
@@ -261,6 +261,24 @@ class DeterminiserResultD {
         this.Qd = Qd;
         this.Δd = Δd;
     }
+
+    String write() {
+        final StringBuffer b = new StringBuffer();
+        b.append("=== D ===\n");
+        b.append("=== STATES ===\n");
+        for (final LinkedHashSet<String> w : this.Qd) {
+            b.append(w.size() + ":" + String.join(",", w) + "\n");
+        }
+        b.append("=== TRANSITIONS ===\n");
+        for (final DTransition w : this.Δd) {
+            b.append(w.f.arity + "/" + w.f.fname + "\n");
+            b.append(w.Q0.size() + ":" + String.join(",", w.Q0) + "\n");
+            for (final LinkedHashSet<String> x : w.args) {
+                b.append( String.join(",", x) + "\n");
+            }
+        }
+        return b.toString();
+    }
 }
 
 class DeterminiserResultP {
@@ -286,6 +304,27 @@ class DeterminiserResultP {
             count = count + t_count;
         }
         return Math.round(count);
+    }
+
+    public String write() {
+        final StringBuffer b = new StringBuffer();
+        b.append("=== P ===\n");
+        b.append("=== STATES ===\n");
+        for (final LinkedHashSet<String> w : this.Qd) {
+            b.append(w.size() + ":" + String.join(",", w) + "\n");
+        }
+        b.append("=== TRANSITIONS ===\n");
+        for (final PTransition w : this.Δp) {
+            b.append(w.f.arity + "/" + w.f.fname + "\n");
+            b.append(w.Q0.size() + ":" + String.join(",", w.Q0) + "\n");
+            for (final LinkedHashSet<LinkedHashSet<String>> x : w.args) {
+                b.append(x.size() + "\n");
+                for(final LinkedHashSet<String> y : x) {
+                    b.append(String.join(",", y) + "\n");
+                }
+            }
+        }
+        return b.toString();
     }
 }
 
