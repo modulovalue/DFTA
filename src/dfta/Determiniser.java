@@ -212,7 +212,7 @@ public class Determiniser {
     }
 
     // Page 25 https://www21.in.tum.de/~lammich/2015_SS_Automata2/slides/handout.pdf
-    public static DeterminiserResultD powerset() {
+    public static DeterminiserResultD powerset(final Index index) {
         // region prepare
         final LinkedHashSet<LinkedHashSet<String>> Qd = new LinkedHashSet<>();
         final LinkedHashSet<DTransition> Δd = new LinkedHashSet<>();
@@ -264,19 +264,41 @@ class DeterminiserResultD {
 
     String write() {
         final StringBuffer b = new StringBuffer();
-        b.append("=== D ===\n");
-        b.append("=== STATES ===\n");
-        for (final LinkedHashSet<String> w : this.Qd) {
-            b.append(w.size() + ":" + String.join(",", w) + "\n");
-        }
-        b.append("=== TRANSITIONS ===\n");
+        b.append("{\n");
+        b.append("  \"type\": \"D\",\n");
+        b.append("  \"version\": 1,\n");
+        b.append("  \"states\": [\n");
+        b.append("    " + String.join(",\n    ", Qd.stream().map(JsonUtil::write_string_list).toList()) + "\n");
+        b.append("  ],\n");
+        b.append("  \"transitions\": [\n");
+        int i = 0;
         for (final DTransition w : this.Δd) {
-            b.append(w.f.arity + "/" + w.f.fname + "\n");
-            b.append(w.Q0.size() + ":" + String.join(",", w.Q0) + "\n");
+            b.append("    {\n");
+            b.append("      \"arity\": " + w.f.arity + ",\n");
+            b.append("      \"name\": \"" + w.f.fname + "\",\n");
+            b.append("      \"state\": " + JsonUtil.write_string_list(w.Q0) + ",\n");
+            b.append("      \"args\": [\n");
+            int j = 0;
             for (final LinkedHashSet<String> x : w.args) {
-                b.append( String.join(",", x) + "\n");
+                b.append("        " + JsonUtil.write_string_list(x));
+                if (j < w.args.size() - 1) {
+                    b.append(",\n");
+                    j++;
+                } else {
+                    b.append("\n");
+                }
+            }
+            b.append("      ]\n");
+            b.append("    }");
+            if (i < this.Δd.size() - 1) {
+                b.append(",\n");
+                i++;
+            } else {
+                b.append("\n");
             }
         }
+        b.append("  ]\n");
+        b.append("}");
         return b.toString();
     }
 }
@@ -308,22 +330,52 @@ class DeterminiserResultP {
 
     public String write() {
         final StringBuffer b = new StringBuffer();
-        b.append("=== P ===\n");
-        b.append("=== STATES ===\n");
-        for (final LinkedHashSet<String> w : this.Qd) {
-            b.append(w.size() + ":" + String.join(",", w) + "\n");
-        }
-        b.append("=== TRANSITIONS ===\n");
+        b.append("{\n");
+        b.append("  \"type\": \"P\",\n");
+        b.append("  \"version\": 1,\n");
+        b.append("  \"states\": [\n");
+        b.append("    " + String.join(",\n    ", Qd.stream().map(JsonUtil::write_string_list).toList()) + "\n");
+        b.append("  ],\n");
+        b.append("  \"transitions\": [\n");
+        int i = 0;
         for (final PTransition w : this.Δp) {
-            b.append(w.f.arity + "/" + w.f.fname + "\n");
-            b.append(w.Q0.size() + ":" + String.join(",", w.Q0) + "\n");
+            b.append("    {\n");
+            b.append("      \"arity\": " + w.f.arity + ",\n");
+            b.append("      \"name\": \"" + w.f.fname + "\",\n");
+            b.append("      \"state\": " + JsonUtil.write_string_list(w.Q0) + ",\n");
+            b.append("      \"args\": [\n");
+            int j = 0;
             for (final LinkedHashSet<LinkedHashSet<String>> x : w.args) {
-                b.append(x.size() + "\n");
-                for(final LinkedHashSet<String> y : x) {
-                    b.append(String.join(",", y) + "\n");
+                b.append("        [\n");
+                int k = 0;
+                for (final LinkedHashSet<String> y : x) {
+                    b.append("          " + JsonUtil.write_string_list(y));
+                    if (k < x.size() - 1) {
+                        b.append(",\n");
+                        k++;
+                    } else {
+                        b.append("\n");
+                    }
+                }
+                b.append("        ]");
+                if (j < w.args.size() - 1) {
+                    b.append(",\n");
+                    j++;
+                } else {
+                    b.append("\n");
                 }
             }
+            b.append("      ]\n");
+            b.append("    }");
+            if (i < this.Δp.size() - 1) {
+                b.append(",\n");
+                i++;
+            } else {
+                b.append("\n");
+            }
         }
+        b.append("  ]\n");
+        b.append("}");
         return b.toString();
     }
 }
@@ -518,5 +570,21 @@ class Symb {
         }
         Symb g1 = (Symb) g;
         return (fname.equals(g1.fname) && arity == g1.arity);
+    }
+}
+
+class JsonUtil {
+    static String write_string_list(Iterable<String> strs) {
+        String str = "";
+        str += "[";
+        final var i = strs.iterator();
+        while(i.hasNext()) {
+            str += "\"" + i.next() + "\"";
+            if (i.hasNext()) {
+                str += ", ";
+            }
+        }
+        str += "]";
+        return str;
     }
 }
