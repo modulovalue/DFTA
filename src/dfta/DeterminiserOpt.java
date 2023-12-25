@@ -9,12 +9,11 @@ import java.io.PrintStream;
 import javax.swing.JTextArea;
 
 public class DeterminiserOpt implements Determiniser {
-
    Indices idx;
    String ftaId;
 
-   LinkedHashSet<LinkedHashSet<String>> qd = new LinkedHashSet<>();
-   ArrayList<PTransition> deltad = new ArrayList<>();
+   public LinkedHashSet<LinkedHashSet<String>> qd = new LinkedHashSet<>();
+   public ArrayList<PTransition> deltad = new ArrayList<>();
 
    LinkedHashMap<FuncSymb, ArrayList<LinkedHashMap<BitSet, LinkedHashSet<LinkedHashSet<String>>>>> t_inverse_table;
    LinkedHashMap<FuncSymb, ArrayList<LinkedHashSet<BitSet>>> psi
@@ -60,10 +59,9 @@ public class DeterminiserOpt implements Determiniser {
       }
       dftaTransitions();
 
-      /*ArrayList<LinkedHashSet<LinkedHashSet<String>>> qmin = minimize();
-      System.out.println(qmin);
-      System.out.println("Size of Q_d = " + qd.size() + ": Size of Qmin = " + qmin.size());
-*/
+//      ArrayList<LinkedHashSet<LinkedHashSet<String>>> qmin = minimize();
+//      System.out.println(qmin);
+//      System.out.println("Size of Q_d = " + qd.size() + ": Size of Qmin = " + qmin.size());
    }
 
    public boolean dftaStates() {
@@ -450,7 +448,6 @@ public class DeterminiserOpt implements Determiniser {
             }
          }
       }
-      //System.out.println("Signatures = " + sigs);
       // Create a map from Sigma to Delta_d
       LinkedHashMap<FuncSymb, LinkedHashSet<PTransition>> deltadMap = new LinkedHashMap<>();
       for (PTransition t : deltad) {
@@ -472,7 +469,6 @@ public class DeterminiserOpt implements Determiniser {
 
          }
       }
-      //System.out.println("SigInv = " + siginv);
       // Set P0 ← (Q) and P1 ← {Bs : Bs ≠ ∅}.
       ArrayList<LinkedHashSet<LinkedHashSet<String>>> p = new ArrayList<>();
       for (LinkedHashSet<Signature> s : siginv.keySet()) {
@@ -484,14 +480,11 @@ public class DeterminiserOpt implements Determiniser {
          k.add(new ArrayList<LinkedHashSet<String>>(pi).get(0));
       }
       while (!k.isEmpty()) {
-         System.out.println("Iteration p = " + p.size() + ": k = " + k.size());
-
          // (a) Remove the first state q in K.
          LinkedHashSet<String> q = k.remove(0);
          LinkedHashSet<LinkedHashSet<String>> qi, qi1, phi_q;
          // (b) For all (σ, i1, . . . , im, j) ∈ Δ such that j ∼ q and for all k ≤ m
          for (FuncSymb f : idx.sigma) {
-            //System.out.println(f + ": " + deltadMap.get(f).size() + " transitions");
             for (PTransition t : deltadMap.get(f)) {
                if (congruent(p, q, t.q0)) {
                   for (int i = 0; i < f.arity; i++) {
@@ -815,7 +808,6 @@ public class DeterminiserOpt implements Determiniser {
    }
 
    public void showStatsApp(JTextArea ja) {
-
       ja.append("Number of input FTA states = " + idx.qs.size() + "\n");
       ja.append("Number of input FTA transitions = " + idx.delta.size() + "\n");
       ja.append("Number of DFTA states = " + qd.size() + "\n");

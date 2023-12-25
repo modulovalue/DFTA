@@ -13,7 +13,6 @@ import java.io.PrintStream;
 import static java.lang.System.exit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javafx.stage.FileChooser;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;

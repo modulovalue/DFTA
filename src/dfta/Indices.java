@@ -10,8 +10,8 @@ import java.util.Vector;  // used by parser (javacc and jtb)
 
 public class Indices {
 
-   LinkedHashSet transitions;
-   LinkedHashSet finalStates;
+   LinkedHashSet<Transition> transitions;
+   LinkedHashSet<String> finalStates;
    LinkedHashSet<FTATransition> delta = new LinkedHashSet<>();
    LinkedHashSet<String> qs = new LinkedHashSet<>();
    LinkedHashSet<String> qfs = new LinkedHashSet<>();

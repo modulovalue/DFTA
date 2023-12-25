@@ -2,8 +2,8 @@ package dfta;
 
 public class FuncSymb {
 
-   String fname;
-   int arity;
+   public String fname;
+   public int arity;
 
    public FuncSymb(String fname, int arity) {
       this.fname = fname;

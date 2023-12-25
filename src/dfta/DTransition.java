@@ -5,9 +5,9 @@ import java.util.ArrayList;
 
 public class DTransition {
 
-   FuncSymb f;
-   LinkedHashSet<String> q0;
-   ArrayList<LinkedHashSet<String>> lhs;
+   public FuncSymb f;
+   public LinkedHashSet<String> q0;
+   public ArrayList<LinkedHashSet<String>> lhs;
 
    public DTransition(FuncSymb f, LinkedHashSet<String> q0, ArrayList<LinkedHashSet<String>> lhs) {
       this.f = f;

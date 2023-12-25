@@ -4,7 +4,6 @@ import java.io.PrintStream;
 import javax.swing.JTextArea;
 
 interface Determiniser {
-
    public Indices getIdx();
 
    public void makeDfta();

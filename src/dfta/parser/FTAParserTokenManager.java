@@ -766,7 +766,8 @@ static private final int[] jjstateSet = new int[62];
 static protected char curChar;
 public FTAParserTokenManager(SimpleCharStream stream){
    if (input_stream != null)
-      throw new TokenMgrError("ERROR: Second call to constructor of static lexer. You must use ReInit() to initialize the static variables.", TokenMgrError.STATIC_LEXER_ERROR);
+       input_stream = null;
+//      throw new TokenMgrError("ERROR: Second call to constructor of static lexer. You must use ReInit() to initialize the static variables.", TokenMgrError.STATIC_LEXER_ERROR);
    input_stream = stream;
 }
 public FTAParserTokenManager(SimpleCharStream stream, int lexState){

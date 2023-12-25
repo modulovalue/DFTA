@@ -13,8 +13,8 @@ public class DeterminiserTextBook implements Determiniser {
    Indices idx;
    boolean verbose;
 
-   LinkedHashSet<LinkedHashSet<String>> qd = new LinkedHashSet<>();
-   final LinkedHashSet<DTransition> deltad = new LinkedHashSet<>();
+   public final LinkedHashSet<LinkedHashSet<String>> qd = new LinkedHashSet<>();
+   public final LinkedHashSet<DTransition> deltad = new LinkedHashSet<>();
 
    public DeterminiserTextBook(LinkedHashSet transitions, LinkedHashSet finalStates, boolean any, boolean verbose) {
       idx = new Indices(transitions, finalStates);
