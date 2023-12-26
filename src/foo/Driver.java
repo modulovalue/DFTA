@@ -25,8 +25,8 @@ public class Driver {
         new File(d_fixture_root).mkdir();
         new File(p_fixture_root).mkdir();
         try {
-            switch ("all") {
-//            switch ("one") {
+//            switch ("all") {
+            switch ("one") {
 //            switch ("other") {
                 case "all" -> {
                     final File[] files = new File(all_example_root).listFiles();
@@ -37,11 +37,13 @@ public class Driver {
                         System.out.println(i + "/" + sorted_Files.size() + " " + file.getName());
                         run(
                             file,
-                            d_fixture_root + file.getName(),
-                            p_fixture_root + file.getName(),
-//                             "gallagher_product_old"
+                            null,
+//                            d_fixture_root + file.getName(),
+                                null,
+//                            p_fixture_root + file.getName(),
+                             "gallagher_product_old"
 //                            "gallagher_product"
-                             "tata_old"
+                            // "tata_old"
                             // "tata"
                             // "powerset"
                         );
@@ -49,20 +51,23 @@ public class Driver {
                 }
                 case "one" -> {
 //                    final File file = new File(all_example_root + "A0053");
-//                    final File file = new File(all_example_root + "A0063");
-                    final File file = new File(all_example_root + "A0088");
+//                    final File file = new File(all_example_root + "A0126");
+//                    final File file = new File(all_example_root + "A0088");
 //                    final File file = new File(all_example_root + "A1003");
+                    final File file = new File(all_example_root + "A323");
 //                    final File file = new File(all_example_root + "A447");
 //                    final File file = new File(all_example_root + "A493");
 //                    final File file = new File(all_example_root + "A620");
                     run(
                         file,
-                        d_fixture_root + file.getName(),
-                        p_fixture_root + file.getName(),
-                        // "gallagher_product_old"
+                        null,
+//                        d_fixture_root + file.getName(),
+                        null,
+//                        p_fixture_root + file.getName(),
+//                         "gallagher_product_old"
                          "gallagher_product"
-                        // "tata_old"
-                        // "tata"
+//                         "tata_old"
+//                         "tata"
                         // "powerset"
                     );
                 }
@@ -173,7 +178,7 @@ public class Driver {
         Future<R> future = threadPool.submit(callable);
         try {
             // throws a TimeoutException after 1000 ms.
-            return future.get(1000, TimeUnit.MILLISECONDS);
+            return future.get(3000, TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) {
             System.out.println("        => ERROR: Timeout while running operation A " + e);
             return null;
@@ -192,14 +197,12 @@ public class Driver {
 }
 
 class Determiniser {
-    // TODO take a string and return the index?
     public static DeterminiserResultP powerset_with_reduction_and_gallagherproducttransitions(final Index index) {
         // region states
         // region init
         final LinkedHashSet<LinkedHashSet<String>> Qd = new LinkedHashSet<>();
         for (final Symb f : index.b.constants) {
-            final BitSet Δ_set = index.b.f_index.get(f);
-            final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
+            final LinkedHashSet<String> Q0 = index.b.f_index.get(f);
             if (!Q0.isEmpty()) {
                 Qd.add(Q0);
             }
@@ -276,7 +279,7 @@ class Determiniser {
                                 temp = temp / z;
                             }
                             final BitSet Δ_set = and_all(Δ_tuple);
-                            final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
+                            final LinkedHashSet<String> Q0 = rhs_set(index.b.transition_by_id, Δ_set);
                             if (!Q0.isEmpty()) {
                                 if (Qd.add(Q0)) {
                                     Qd_sentinel.add(Q0);
@@ -297,8 +300,7 @@ class Determiniser {
         // region transitions
         final ArrayList<PTransition> Δp = new ArrayList<>();
         for (final Symb f : index.b.constants) {
-            final BitSet Δ_set = index.b.f_index.get(f);
-            final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
+            final LinkedHashSet<String> Q0 = index.b.f_index.get(f);
             if (!Q0.isEmpty()) {
                 Δp.add(new PTransition(f, Q0, new ArrayList<>()));
             }
@@ -323,7 +325,7 @@ class Determiniser {
                     temp = temp / z;
                 }
                 final BitSet Δ_set = and_all(Δ_tuple);
-                final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
+                final LinkedHashSet<String> Q0 = rhs_set(index.b.transition_by_id, Δ_set);
                 if (!Q0.isEmpty()) {
                     final ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs = new ArrayList<>();
                     for (int m = 0; m < f.arity; m++) {
@@ -350,8 +352,7 @@ class Determiniser {
             final ArrayList<LinkedHashSet<String>> Qd_prev = new ArrayList<>(Qd);
             final int Qd_size = Qd_prev.size();
             for (final Symb f : index.b.constants) {
-                final BitSet Δ_set = index.b.f_index.get(f);
-                final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
+                final LinkedHashSet<String> Q0 = index.b.f_index.get(f);
                 if (!Q0.isEmpty()) {
                     Qd.add(Q0);
                     new_transition |= Δd.add(new DTransition(f, Q0, new ArrayList<>()));
@@ -374,7 +375,7 @@ class Determiniser {
                         Δ_tuple.add(m, result);
                     }
                     final BitSet Δ_set = and_all(Δ_tuple);
-                    final LinkedHashSet<String> Q0 = rhs_set(index.b, Δ_set);
+                    final LinkedHashSet<String> Q0 = rhs_set(index.b.transition_by_id, Δ_set);
                     if (!Q0.isEmpty()) {
                         Qd.add(Q0);
                         new_transition |= Δd.add(new DTransition(f, Q0, Q_tuples));
@@ -476,10 +477,10 @@ class Determiniser {
         return result;
     }
 
-    private static LinkedHashSet<String> rhs_set(final IndicesB idx, final BitSet set) {
+    public static LinkedHashSet<String> rhs_set(final LinkedHashMap<Integer, Transition> transition_by_id, final BitSet set) {
         final LinkedHashSet<String> result = new LinkedHashSet<>();
         for (int i = set.nextSetBit(0); i >= 0; i = set.nextSetBit(i + 1)) {
-            result.add(idx.transition_by_id.get(i).Q0);
+            result.add(transition_by_id.get(i).Q0);
         }
         return result;
     }
@@ -708,7 +709,7 @@ class IndicesA {
 
 class IndicesB {
     final LinkedHashMap<Integer, Transition> transition_by_id = new LinkedHashMap<>();
-    final LinkedHashMap<Symb, BitSet> f_index = new LinkedHashMap<>();
+    final LinkedHashMap<Symb, LinkedHashSet<String>> f_index = new LinkedHashMap<>();
     final LinkedHashMap<Symb, ArrayList<LinkedHashMap<String, BitSet>>> lhs_f = new LinkedHashMap<>();
     final LinkedHashSet<Symb> constants = new LinkedHashSet<>();
     final LinkedHashSet<Symb> inconstants = new LinkedHashSet<>();
@@ -717,14 +718,6 @@ class IndicesB {
         // region transition_by_id
         for (final Transition t : indices_a.Δ) {
             transition_by_id.put(t.m, t);
-        }
-        // endregion
-        // region f_index
-        for (final Transition t : indices_a.Δ) {
-            if (!f_index.containsKey(t.f)) {
-                f_index.put(t.f, new BitSet(indices_a.Δ.size()));
-            }
-            f_index.get(t.f).set(t.m);  // Set the bit for the mth transition.
         }
         // endregion
         // region lhs_f
@@ -754,6 +747,20 @@ class IndicesB {
             } else {
                 inconstants.add(s);
             }
+        }
+        // endregion
+        // region f_index
+        final LinkedHashMap<Symb, BitSet> f_index = new LinkedHashMap<>();
+        for (final Transition t : indices_a.Δ) {
+            if (!f_index.containsKey(t.f)) {
+                final BitSet Δ_set = new BitSet(indices_a.Δ.size());
+                f_index.put(t.f, Δ_set);
+            }
+            f_index.get(t.f).set(t.m);  // Set the bit for the mth transition.
+        }
+        for (final Symb t : indices_a.Σ) {
+            final var Δ_set = Determiniser.rhs_set(transition_by_id, f_index.get(t));
+            this.f_index.put(t, Δ_set);
         }
         // endregion
     }
