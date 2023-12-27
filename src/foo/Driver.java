@@ -25,8 +25,8 @@ public class Driver {
         new File(d_fixture_root).mkdir();
         new File(p_fixture_root).mkdir();
         try {
-//            switch ("all") {
-            switch ("one") {
+            switch ("all") {
+//            switch ("one") {
 //            switch ("other") {
                 case "all" -> {
                     final File[] files = new File(all_example_root).listFiles();
@@ -37,14 +37,14 @@ public class Driver {
                         System.out.println(i + "/" + sorted_Files.size() + " " + file.getName());
                         run(
                             file,
-                            null,
-//                            d_fixture_root + file.getName(),
+//                            null,
+                            d_fixture_root + file.getName(),
                                 null,
 //                            p_fixture_root + file.getName(),
-                             "gallagher_product_old"
+//                             "gallagher_product_old"
 //                            "gallagher_product"
                             // "tata_old"
-                            // "tata"
+                             "tata"
                             // "powerset"
                         );
                     }
@@ -54,7 +54,7 @@ public class Driver {
 //                    final File file = new File(all_example_root + "A0126");
 //                    final File file = new File(all_example_root + "A0088");
 //                    final File file = new File(all_example_root + "A1003");
-                    final File file = new File(all_example_root + "A323");
+                    final File file = new File(all_example_root + "A0063");
 //                    final File file = new File(all_example_root + "A447");
 //                    final File file = new File(all_example_root + "A493");
 //                    final File file = new File(all_example_root + "A620");
@@ -65,8 +65,8 @@ public class Driver {
                         null,
 //                        p_fixture_root + file.getName(),
 //                         "gallagher_product_old"
-                         "gallagher_product"
-//                         "tata_old"
+//                         "gallagher_product"
+                         "tata_old"
 //                         "tata"
                         // "powerset"
                     );
@@ -347,17 +347,17 @@ class Determiniser {
         final LinkedHashSet<DTransition> Δd = new LinkedHashSet<>();
         // endregion
         // region main
+        for (final Symb f : index.b.constants) {
+            final LinkedHashSet<String> Q0 = index.b.f_index.get(f);
+            if (!Q0.isEmpty()) {
+                Qd.add(Q0);
+                Δd.add(new DTransition(f, Q0, new ArrayList<>()));
+            }
+        }
         for (;;) {
             boolean new_transition = false;
             final ArrayList<LinkedHashSet<String>> Qd_prev = new ArrayList<>(Qd);
             final int Qd_size = Qd_prev.size();
-            for (final Symb f : index.b.constants) {
-                final LinkedHashSet<String> Q0 = index.b.f_index.get(f);
-                if (!Q0.isEmpty()) {
-                    Qd.add(Q0);
-                    new_transition |= Δd.add(new DTransition(f, Q0, new ArrayList<>()));
-                }
-            }
             for (final Symb f : index.b.inconstants) {
                 final ArrayList<LinkedHashMap<String, BitSet>> lhs_f_f = index.b.lhs_f.get(f);
                 final double target_k = Math.pow(Qd_size, f.arity);
