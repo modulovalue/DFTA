@@ -17,12 +17,16 @@ public class Driver {
     static final String all_example_root = root + "examples/";
     static final String d_fixture_root = root + "examples_d/";
     static final String p_fixture_root = root + "examples_p/";
+    static final String d_fixture_root_withdcopt = root + "examples_d_with_dc_opt/";
+    static final String p_fixture_root_withdcopt = root + "examples_p_with_dc_opt/";
 
     public static void main(final String[] args) throws FileNotFoundException, dfta.parser.ParseException, ParseException {
         // We start the parser with some irrelevant file so that we can reinit it in a clean way.
         new dfta.parser.FTAParser(new java.io.FileInputStream(all_example_root + "A0053"));
         new File(d_fixture_root).mkdir();
         new File(p_fixture_root).mkdir();
+        new File(d_fixture_root_withdcopt).mkdir();
+        new File(p_fixture_root_withdcopt).mkdir();
         try {
 //            switch ("all") {
             switch ("one") {
@@ -49,24 +53,69 @@ public class Driver {
                     }
                 }
                 case "one" -> {
+                      // SIGMA:
+                      //   - []
+                      //   - [.|.]
+                      //   - 0
+                      // Q:
+                      //   - list
+                      //   - listlist
+                      //   - any
+                      // Qf:
+                      //   - list
+                      //   - listlist
+                      // DELTA:
+                      //   - [] -> list
+                      //   - [any|list] -> list
+                      //   - [] -> listlist
+                      //   - [list|listlist] -> listlist
+                      //   - 0 -> any
+                      //
+                      //
+                      // Q'
+                      //   - q1
+                      //   - q2
+                      //   - q3
+                      // Q'f
+                      //   - q1
+                      //   - q2
+                      // DELTA'
+                      //   - []      -> q1
+                      //   - [q1|q1] -> q1
+                      //   - [q2|q1] -> q1
+                      //
+                      //   - [q1|q2] -> q2
+                      //   - [q2|q2] -> q2
+                      //   - [q3|q2] -> q2
+                      //   - [q3|q1] -> q2
+                      //
+                      //   - [q2|q3] -> q3
+                      //   - [q1|q3] -> q3
+                      //   - [q3|q3] -> q3
+                      //   - 0       -> 13
+                      // q1: any, list, listlist
+                      // q2: any, list
+                      // q3: any
+//                    final File file = new File(all_example_root + "AEX1");
 //                    final File file = new File(all_example_root + "A0053");
 //                    final File file = new File(all_example_root + "A0063");
 //                    final File file = new File(all_example_root + "A0126");
 //                    final File file = new File(all_example_root + "A0088");
 //                    final File file = new File(all_example_root + "A1003");
-                    final File file = new File(all_example_root + "AT1");
 //                    final File file = new File(all_example_root + "A447");
 //                    final File file = new File(all_example_root + "A493");
 //                    final File file = new File(all_example_root + "A620");
 //                    final File file = new File(all_example_root + "A620");
+                    final File file = new File(all_example_root + "AT1");
+//                    final File file = new File(all_example_root + "AT2");
                     run(
                         file,
                         null,
 //                        d_fixture_root + file.getName(),
                         null,
 //                        p_fixture_root + file.getName(),
-                         "gallagher_product_old"
-//                         "gallagher_product"
+//                         "gallagher_product_old"
+                         "gallagher_product"
 //                         "tata_old"
 //                         "tata"
                         // "powerset"
@@ -181,14 +230,14 @@ public class Driver {
         try {
             return future.get(5000, TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) {
-            System.out.println("        => ERROR: Timeout while running operation A " + e);
+            System.out.println("        => ERROR: Timeout while running operation (A) " + e);
             return null;
         } catch (InterruptedException e) {
-            System.out.println("        => ERROR: Timeout while running operation B");
+            System.out.println("        => ERROR: Timeout while running operation (B)");
             Thread.currentThread().interrupt();
             return null;
         } catch (TimeoutException e) {
-            System.out.println("        => ERROR: Timeout while running operation C");
+            System.out.println("        => ERROR: Timeout while running operation (C)");
             threadPool.close();
             future.cancel(true);
             return null;
@@ -310,18 +359,60 @@ class Determiniser {
         }
         for (final Symb f : index.b.inconstants) {
             final ArrayList<LinkedHashSet<BitSet>> Ψ_f = Ψ.get(f);
-            int prod = 1;
             final ArrayList<ArrayList<BitSet>> Ψ_tuple = new ArrayList<>();
             final ArrayList<BitSet> Δ_tuple = new ArrayList<>();
-            for (int m = 0; m < f.arity; m++) {
-                final LinkedHashSet<BitSet> Ψ_f_m = Ψ_f.get(m);
-                prod = prod * Ψ_f_m.size();
-                Ψ_tuple.add(m, new ArrayList<>(Ψ_f_m));
+            int f_arity = f.arity;
+            for (int m = 0; m < f_arity; m++) {
+                Ψ_tuple.add(m, new ArrayList<>(Ψ_f.get(m)));
                 Δ_tuple.add(m, new BitSet(index.a.Δ.size()));
+            }
+            // Remove don't care arguments from the psi-tuple.
+            if (f_arity > 1) {
+                final var Tinverse_f = Tinverse.get(f);
+                final ArrayList<BitSet> Ψ_intersect_tuple = new ArrayList<>();
+                final ArrayList<LinkedHashSet<BitSet>> dont_cares = new ArrayList<>();
+                // Intersect elements of psi-tuple and initialise don't-care array.
+                for (int i = 0; i < f_arity; i++) {
+                    if (!Ψ_tuple.get(i).isEmpty()) {
+                        Ψ_intersect_tuple.add(i, and_all(Ψ_tuple.get(i)));
+                    } else {
+                        Ψ_intersect_tuple.add(i, new BitSet(index.a.Δ.size()));
+                    }
+                    dont_cares.add(i, new LinkedHashSet<>());
+                }
+                for (int i = 0; i < f_arity; i++) {
+                    final var Tinverse_f_i = Tinverse_f.get(i);
+                    final BitSet temp = Ψ_intersect_tuple.get(i);
+                    for (int j = 0; j < Ψ_tuple.get(i).size(); j++) {
+                        final BitSet delta_j = Ψ_tuple.get(i).get(j);
+                        Ψ_intersect_tuple.set(i, delta_j);
+                        final LinkedHashSet<String> rhs = rhs_set(index.b.transition_by_id, delta_j);
+                        if (rhs.equals(rhs_set(index.b.transition_by_id, and_all(Ψ_intersect_tuple)))
+                                || (f_arity == 2 && rhs.size() == 1 && intersectsAll(delta_j, i, f_arity, Ψ_tuple))) {
+                            final ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs = new ArrayList<>();
+                            for (int k = 0; k < f_arity; k++) {
+                                lhs.add(k, new LinkedHashSet<>());
+                                if (k == i) {
+                                    lhs.set(k, Tinverse_f_i.get(delta_j));
+                                }
+                            }
+                            Δp.add(new PTransition(f, rhs, lhs));
+                            dont_cares.get(i).add(delta_j);
+                        }
+                    }
+                    Ψ_intersect_tuple.set(i, temp);
+                }
+                for (int i = 0; i < f_arity; i++) {
+                    Ψ_tuple.get(i).removeAll(dont_cares.get(i));
+                }
+            }
+            int prod = 1;
+            for (int m = 0; m < f_arity; m++) {
+                prod = prod * Ψ_tuple.get(m).size();
             }
             for (int j = 0; j < prod; j++) {
                 int temp = j;
-                for (int m = 0; m < f.arity; m++) {
+                for (int m = 0; m < f_arity; m++) {
                     final ArrayList<BitSet> Ψ_tuple_m = Ψ_tuple.get(m);
                     final int z = Ψ_tuple_m.size();
                     Δ_tuple.set(m, Ψ_tuple_m.get(temp % z));
@@ -331,7 +422,7 @@ class Determiniser {
                 final LinkedHashSet<String> Q0 = rhs_set(index.b.transition_by_id, Δ_set);
                 if (!Q0.isEmpty()) {
                     final ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs = new ArrayList<>();
-                    for (int m = 0; m < f.arity; m++) {
+                    for (int m = 0; m < f_arity; m++) {
                         lhs.add(m, Tinverse.get(f).get(m).get(Δ_tuple.get(m)));
                     }
                     Δp.add(new PTransition(f, Q0, lhs));
@@ -408,9 +499,14 @@ class Determiniser {
         } catch (dfta.parser.ParseException e) {
             throw new RuntimeException(e);
         }
-        final var det = new DeterminiserOpt("", dfta.parser.FTAParser.transitions, dfta.parser.FTAParser.finalStates, true, false,false);
+        // TODO strange:
+        // TODO                any       dontCare
+        // TODO fastest:       true      true
+        // TODO                false     true       surprisingly slower than if dontCares are disabled (and with dontCares there are more states)
+        final var det = new DeterminiserOpt("", dfta.parser.FTAParser.transitions, dfta.parser.FTAParser.finalStates, true, true,false);
         det.makeDfta();
         det.showStats(true);
+//        det.printDfta(System.out, System.out);
         final LinkedHashSet<LinkedHashSet<String>> second_Qd = det.qd;
         final ArrayList<dfta.PTransition> second_DELTAd = det.deltad;
         final ArrayList<foo.PTransition> result_DELTAd = new ArrayList<>();
@@ -422,12 +518,12 @@ class Determiniser {
         final var minimized = det.minimize();
         final long minimize_end_time = System.currentTimeMillis();
         System.out.println("Minimized states: " + minimized.size() + " Took: " +  ((minimize_end_time - minimize_start_time) / 1000.0) + "s");
-        for (var x : minimized) {
-            System.out.println(x.size());
-            for (var y : x) {
-                System.out.println(" - " + y.toString());
-            }
-        }
+//        for (var x : minimized) {
+//            System.out.println(x.size());
+//            for (var y : x) {
+//                System.out.println(" - " + y.toString());
+//            }
+//        }
         return new DeterminiserResultP(index, second_Qd, result_DELTAd);
     }
 
@@ -447,7 +543,7 @@ class Determiniser {
         final var det = new DeterminiserTextBook(dfta.parser.FTAParser.transitions, dfta.parser.FTAParser.finalStates, true, true);
         det.makeDfta();
         det.showStats(true);
-
+//        det.printDfta(System.out, System.out);
         final LinkedHashSet<LinkedHashSet<String>> first_Qd = det.qd;
         final LinkedHashSet<dfta.DTransition> first_DELTAd = det.deltad;
         final LinkedHashSet<foo.DTransition> result_DELTAd = new LinkedHashSet<>();
@@ -488,6 +584,25 @@ class Determiniser {
             result.and(values.get(i));
         }
         return result;
+    }
+
+    private static boolean intersectsAll(BitSet deltaj, int j, int arity, ArrayList<ArrayList<BitSet>> psi_tuple) {
+        // Check whether deltaj intersects with all members of all non-j elements of psi_tuple.
+        for (int k = 0; k < arity; k++) {
+            if (k != j) {
+                if (psi_tuple.get(k).isEmpty()) {
+                    return false;
+                }
+                for (int l = 0; l < psi_tuple.get(k).size(); l++) {
+                    final BitSet ts = (BitSet) deltaj.clone();
+                    ts.and(psi_tuple.get(k).get(l));
+                    if (ts.isEmpty()) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     public static LinkedHashSet<String> rhs_set(final LinkedHashMap<Integer, Transition> transition_by_id, final BitSet set) {

@@ -1,0 +1,15 @@
+
+Final States list listlist.
+
+Transitions .
+c -> list.
+d('$any',list) -> list.
+c -> listlist.
+d(list,listlist) -> listlist.
+z -> '$any'.
+
+
+
+
+
+
