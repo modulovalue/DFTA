@@ -12,7 +12,6 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
 
-// TODO • get this to run DFTA upstream master and serialize determinized.
 public class Driver {
     static final String root = "/Users/modulovalue/Desktop/DFTA/";
     static final String all_example_root = root + "examples/";
@@ -25,8 +24,8 @@ public class Driver {
         new File(d_fixture_root).mkdir();
         new File(p_fixture_root).mkdir();
         try {
-            switch ("all") {
-//            switch ("one") {
+//            switch ("all") {
+            switch ("one") {
 //            switch ("other") {
                 case "all" -> {
                     final File[] files = new File(all_example_root).listFiles();
@@ -42,21 +41,23 @@ public class Driver {
                                 null,
 //                            p_fixture_root + file.getName(),
 //                             "gallagher_product_old"
-//                            "gallagher_product"
+                            "gallagher_product"
                             // "tata_old"
-                             "tata"
+//                             "tata"
                             // "powerset"
                         );
                     }
                 }
                 case "one" -> {
 //                    final File file = new File(all_example_root + "A0053");
+//                    final File file = new File(all_example_root + "A0063");
 //                    final File file = new File(all_example_root + "A0126");
 //                    final File file = new File(all_example_root + "A0088");
 //                    final File file = new File(all_example_root + "A1003");
-                    final File file = new File(all_example_root + "A0063");
+                    final File file = new File(all_example_root + "AT1");
 //                    final File file = new File(all_example_root + "A447");
 //                    final File file = new File(all_example_root + "A493");
+//                    final File file = new File(all_example_root + "A620");
 //                    final File file = new File(all_example_root + "A620");
                     run(
                         file,
@@ -64,9 +65,9 @@ public class Driver {
 //                        d_fixture_root + file.getName(),
                         null,
 //                        p_fixture_root + file.getName(),
-//                         "gallagher_product_old"
+                         "gallagher_product_old"
 //                         "gallagher_product"
-                         "tata_old"
+//                         "tata_old"
 //                         "tata"
                         // "powerset"
                     );
@@ -96,8 +97,8 @@ public class Driver {
         // region run
         boolean success = false;
         switch (flavor) {
-            case "gallagher_product" -> {
-                final var det = with_timeout(Determiniser::powerset_with_reduction_and_gallagherproducttransitions, index);
+            case "gallagher_product_old" -> {
+                final var det = with_timeout(Determiniser::powerset_with_reduction_and_gallagherproducttransitions_upstream, index);
                 if (det != null) {
                     success = true;
                     System.out.println("Number of DFTA states/normal transitions/product transitions = " + det.Qd.size() + "/" + det.Δd_count() + "/" + det.Δp.size());
@@ -109,8 +110,8 @@ public class Driver {
                     }
                 }
             }
-            case "gallagher_product_old" -> {
-                final var det = with_timeout(Determiniser::powerset_with_reduction_and_gallagherproducttransitions_upstream, index);
+            case "gallagher_product" -> {
+                final var det = with_timeout(Determiniser::powerset_with_reduction_and_gallagherproducttransitions, index);
                 if (det != null) {
                     success = true;
                     System.out.println("Number of DFTA states/normal transitions/product transitions = " + det.Qd.size() + "/" + det.Δd_count() + "/" + det.Δp.size());
@@ -164,12 +165,13 @@ public class Driver {
         }
         final long run_end_time = System.currentTimeMillis();
         if (success) {
-            System.out.println("Number of input FTA states/transitions = " + index.a.Q.size() + "/" + index.a.Δ.size());
-            System.out.println("Determinisation time = " + ((run_end_time - run_start_time) / 1000.0) + ",");
+            System.out.println("Index A Q/DELTA = " + index.a.Q.size() + "/" + index.a.Δ.size());
+            System.out.println("Determinisation time = " + ((run_end_time - run_start_time) / 1000.0) + "s,");
         }
         // endregion
     }
 
+    // TODO There are bugs here: closing the threadPool and cancelling the future doesn't appear to stop the computation.
     // https://stackoverflow.com/questions/4978187/apply-timeout-control-around-java-operation
     static <R> R with_timeout(final Function<Index, R> fn, final Index index) {
 //        return fn.apply(index);
@@ -177,8 +179,7 @@ public class Driver {
         Callable<R> callable = () -> fn.apply(index);
         Future<R> future = threadPool.submit(callable);
         try {
-            // throws a TimeoutException after 1000 ms.
-            return future.get(3000, TimeUnit.MILLISECONDS);
+            return future.get(5000, TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) {
             System.out.println("        => ERROR: Timeout while running operation A " + e);
             return null;
@@ -188,10 +189,12 @@ public class Driver {
             return null;
         } catch (TimeoutException e) {
             System.out.println("        => ERROR: Timeout while running operation C");
+            threadPool.close();
+            future.cancel(true);
             return null;
         } finally {
-            future.cancel(true);
             threadPool.close();
+            future.cancel(true);
         }
     }
 }
@@ -356,17 +359,17 @@ class Determiniser {
         }
         for (;;) {
             boolean new_transition = false;
-            final ArrayList<LinkedHashSet<String>> Qd_prev = new ArrayList<>(Qd);
-            final int Qd_size = Qd_prev.size();
+            final ArrayList<LinkedHashSet<String>> Qd_old = new ArrayList<>(Qd);
+            final int Qd_old_size = Qd_old.size();
             for (final Symb f : index.b.inconstants) {
                 final ArrayList<LinkedHashMap<String, BitSet>> lhs_f_f = index.b.lhs_f.get(f);
-                final double target_k = Math.pow(Qd_size, f.arity);
+                final double target_k = Math.pow(Qd_old_size, f.arity);
                 for (int k = 0; k < target_k; k++) { // Enumerate the delta-tuples.
                     int temp = k;
                     final ArrayList<LinkedHashSet<String>> Q_tuples = new ArrayList<>();
                     for (int m = 0; m < f.arity; m++) {
-                        final LinkedHashSet<String> Q_tuple_m = Qd_prev.get(temp % Qd_size);
-                        temp = temp / Qd_size;
+                        final LinkedHashSet<String> Q_tuple_m = Qd_old.get(temp % Qd_old_size);
+                        temp = temp / Qd_old_size;
                         Q_tuples.add(m, Q_tuple_m);
                     }
                     final ArrayList<BitSet> Δ_tuple = new ArrayList<>();
@@ -408,12 +411,22 @@ class Determiniser {
         final var det = new DeterminiserOpt("", dfta.parser.FTAParser.transitions, dfta.parser.FTAParser.finalStates, true, false,false);
         det.makeDfta();
         det.showStats(true);
-
         final LinkedHashSet<LinkedHashSet<String>> second_Qd = det.qd;
         final ArrayList<dfta.PTransition> second_DELTAd = det.deltad;
         final ArrayList<foo.PTransition> result_DELTAd = new ArrayList<>();
         for (final dfta.PTransition x : second_DELTAd) {
             result_DELTAd.add(new PTransition(new Symb(x.f.fname, x.f.arity), x.q0, x.lhs));
+        }
+        System.out.println("Started minimization.");
+        final long minimize_start_time = System.currentTimeMillis();
+        final var minimized = det.minimize();
+        final long minimize_end_time = System.currentTimeMillis();
+        System.out.println("Minimized states: " + minimized.size() + " Took: " +  ((minimize_end_time - minimize_start_time) / 1000.0) + "s");
+        for (var x : minimized) {
+            System.out.println(x.size());
+            for (var y : x) {
+                System.out.println(" - " + y.toString());
+            }
         }
         return new DeterminiserResultP(index, second_Qd, result_DELTAd);
     }

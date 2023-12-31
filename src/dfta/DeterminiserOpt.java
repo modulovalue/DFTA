@@ -413,21 +413,8 @@ public class DeterminiserOpt implements Determiniser {
       return true;
    }
 
-   LinkedHashSet<LinkedHashSet<String>> finalStates() {
-      LinkedHashSet<LinkedHashSet<String>> f = new LinkedHashSet<>();
-      for (LinkedHashSet<String> q : qd) {
-         for (String s : q) {
-            if (idx.finalStates.contains(s)) {
-               f.add(q);
-            }
-         }
-      }
-      return f;
-   }
-
    // minimization algorithm adapted from Carrasco et al. 2016
-   ArrayList<LinkedHashSet<LinkedHashSet<String>>> minimize() {
-
+   public ArrayList<LinkedHashSet<LinkedHashSet<String>>> minimize() {
       LinkedHashMap<LinkedHashSet<String>, LinkedHashSet<Signature>> sigs = new LinkedHashMap<>();
       LinkedHashSet<LinkedHashSet<String>> qf = finalStates();
       Signature dummySig = new Signature(new FuncSymb("#", 1), 1);
@@ -438,7 +425,6 @@ public class DeterminiserOpt implements Determiniser {
             sigs.get(q).add(dummySig);
          }
       }
-
       // For all (σ, i1, . . . , im) ∈ Δ add (σ,m, k) to sig(ik) for k = 1, . . . , m.
       for (PTransition t : deltad) {
          for (int i = 0; i < t.f.arity; i++) {
@@ -452,11 +438,10 @@ public class DeterminiserOpt implements Determiniser {
       LinkedHashMap<FuncSymb, LinkedHashSet<PTransition>> deltadMap = new LinkedHashMap<>();
       for (PTransition t : deltad) {
          if (!deltadMap.containsKey(t.f)) {
-            deltadMap.put(t.f, new LinkedHashSet<PTransition>());
+            deltadMap.put(t.f, new LinkedHashSet<>());
          }
          deltadMap.get(t.f).add(t);
       }
-
       // Create an empty set Bsig for every different signature sig and for all q ∈ Q add q to set Bsig(q).
       LinkedHashMap<LinkedHashSet<Signature>, LinkedHashSet<LinkedHashSet<String>>> siginv = new LinkedHashMap<>();
       for (LinkedHashSet<String> q : qd) {
@@ -466,7 +451,6 @@ public class DeterminiserOpt implements Determiniser {
          } else {
             siginv.put(sigset, new LinkedHashSet<>());
             siginv.get(sigset).add(q);
-
          }
       }
       // Set P0 ← (Q) and P1 ← {Bs : Bs ≠ ∅}.
@@ -477,27 +461,27 @@ public class DeterminiserOpt implements Determiniser {
       // Enqueue in K the first element from every class in P1
       ArrayList<LinkedHashSet<String>> k = new ArrayList<>();
       for (LinkedHashSet<LinkedHashSet<String>> pi : p) {
-         k.add(new ArrayList<LinkedHashSet<String>>(pi).get(0));
+         k.add(new ArrayList<>(pi).get(0));
       }
       while (!k.isEmpty()) {
          // (a) Remove the first state q in K.
-         LinkedHashSet<String> q = k.remove(0);
-         LinkedHashSet<LinkedHashSet<String>> qi, qi1, phi_q;
+         final LinkedHashSet<String> q = k.remove(0);
          // (b) For all (σ, i1, . . . , im, j) ∈ Δ such that j ∼ q and for all k ≤ m
          for (FuncSymb f : idx.sigma) {
             for (PTransition t : deltadMap.get(f)) {
                if (congruent(p, q, t.q0)) {
                   for (int i = 0; i < f.arity; i++) {
-                     qi = t.lhs.get(i);
+                     final LinkedHashSet<LinkedHashSet<String>> qi = t.lhs.get(i);
                      for (LinkedHashSet<String> qij : qi) {
                         int r = equivClass(p, qij);
                         if (p.get(r).size() > 1) { // can be split
-                           ArrayList<LinkedHashSet<String>> prList = new ArrayList<>(p.get(r));
-                           LinkedHashSet<String> next_qij;
-                           if (prList.indexOf(qij) < prList.size() - 1) {
-                              next_qij = prList.get(prList.indexOf(qij) + 1);
-                           } else {
+                           final ArrayList<LinkedHashSet<String>> prList = new ArrayList<>(p.get(r));
+                           final LinkedHashSet<String> next_qij;
+                           final boolean is_last = qij == prList.get(prList.size() - 1);
+                           if (is_last) {
                               next_qij = prList.get(0);
+                           } else {
+                              next_qij = prList.get(prList.indexOf(qij) + 1);
                            }
                            ArrayList<LinkedHashSet<LinkedHashSet<String>>> phi_q_new = new ArrayList<>();
                            for (int l = 0; l < p.size(); l++) {
@@ -507,8 +491,8 @@ public class DeterminiserOpt implements Determiniser {
                            for (PTransition t1 : deltadMap.get(f)) {
                               if (t1.lhs.get(i).contains(next_qij)) {
                                  if (!congruent(p, q, t1.q0)) {
-                                    qi1 = t1.lhs.get(i);
-                                    phi_q = new LinkedHashSet<>(p.get(r));
+                                    final LinkedHashSet<LinkedHashSet<String>> qi1 = t1.lhs.get(i);
+                                    final LinkedHashSet<LinkedHashSet<String>> phi_q = new LinkedHashSet<>(p.get(r));
                                     phi_q.retainAll(qi1);
                                     if (!phi_q.isEmpty()) {
                                        int j = 0;
@@ -533,9 +517,7 @@ public class DeterminiserOpt implements Determiniser {
                                  }
                               }
                            }
-
                            // replace phi[q] with the partitions in pi_new
-                          
                            LinkedHashSet<LinkedHashSet<String>> oldEquivClass = p.remove(r);
                            for (LinkedHashSet<LinkedHashSet<String>> newEquivClass : phi_q_new) {
                               if (!newEquivClass.isEmpty()) {
@@ -559,9 +541,43 @@ public class DeterminiserOpt implements Determiniser {
             }
          }
       }
-      
       return p;
    }
+
+   LinkedHashSet<LinkedHashSet<String>> finalStates() {
+       LinkedHashSet<LinkedHashSet<String>> f = new LinkedHashSet<>();
+       for (LinkedHashSet<String> q : qd) {
+           for (String s : q) {
+               if (idx.finalStates.contains(s)) {
+                   f.add(q);
+               }
+           }
+       }
+       return f;
+   }
+
+    private boolean congruent(ArrayList<LinkedHashSet<LinkedHashSet<String>>> p, LinkedHashSet<String> q, LinkedHashSet<String> q0) {
+        return (equivClass(p, q) == equivClass(p, q0));
+    }
+
+    private int equivClass(ArrayList<LinkedHashSet<LinkedHashSet<String>>> p, LinkedHashSet<String> q) {
+        final int n = p.size();
+        for (int i = 0; i < n; i++) {
+            if (p.get(i).contains(q)) {
+                return (i);
+            }
+        }
+        throw new RuntimeException("Invalid State");
+    }
+
+    private boolean nonEmptyIntersect(LinkedHashSet<LinkedHashSet<String>> qi, LinkedHashSet<LinkedHashSet<String>> qj) {
+        for (LinkedHashSet<String> s : qi) {
+            if (qj.contains(s)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
 // check inclusion between states in the input FTA
    @Override
@@ -756,15 +772,13 @@ public class DeterminiserOpt implements Determiniser {
    }
 
    public long deltaDCountComplete() {
-      Iterator iter = idx.sigma.iterator();
-      double count = 0;
-      FuncSymb f;
-      double qdsize = qd.size();
-      while (iter.hasNext()) {
-         f = (FuncSymb) iter.next();
-         count = count + Math.pow(qdsize, (double) f.arity);
-      }
-      return Math.round(count);
+       double count = 0;
+       double qdsize = qd.size();
+       for (FuncSymb funcSymb : idx.sigma) {
+           final FuncSymb f = funcSymb;
+           count = count + Math.pow(qdsize, f.arity);
+       }
+       return Math.round(count);
    }
 
    /**
@@ -790,13 +804,13 @@ public class DeterminiserOpt implements Determiniser {
       if (any) {
          if (verbose) {
             System.out.println();
-            System.out.print("Number of DFTA transitions = ");
+            System.out.print("Number of DFTA transitions complete = ");
          }
          System.out.print(deltaDCountComplete() + ", ");
       } else {
          if (verbose) {
             System.out.println();
-            System.out.print("Number of DFTA transitions = ");
+            System.out.print("Number of DFTA transitions normal = ");
          }
          System.out.print(deltaDCount() + ", ");
       }
@@ -870,30 +884,4 @@ public class DeterminiserOpt implements Determiniser {
       }
       return result;
    }
-
-   private boolean congruent(ArrayList<LinkedHashSet<LinkedHashSet<String>>> p, LinkedHashSet<String> q, LinkedHashSet<String> q0) {
-      return (equivClass(p, q) == equivClass(p, q0));
-   }
-
-   private int equivClass(ArrayList<LinkedHashSet<LinkedHashSet<String>>> p, LinkedHashSet<String> q) {
-      int i = 0;
-      int n = p.size();
-      while (i < n) {
-         if (p.get(i).contains(q)) {
-            return (i);
-         }
-         i++;
-      }
-      return -1;
-   }
-
-   private boolean nonEmptyIntersect(LinkedHashSet<LinkedHashSet<String>> qi, LinkedHashSet<LinkedHashSet<String>> qj) {
-      for (LinkedHashSet<String> s : qi) {
-         if (qj.contains(s)) {
-            return true;
-         }
-      }
-      return false;
-   }
-
 }
