@@ -97,6 +97,9 @@ public class Driver {
                       // q2: any, list
                       // q3: any
 //                    final File file = new File(all_example_root + "AEX1");
+                    // TATA Example 7
+                    // TODO State where all are powerset states are split into multiple, is this intended?
+                    final File file = new File(all_example_root + "AEX2");
 //                    final File file = new File(all_example_root + "A0053");
 //                    final File file = new File(all_example_root + "A0063");
 //                    final File file = new File(all_example_root + "A0126");
@@ -106,16 +109,16 @@ public class Driver {
 //                    final File file = new File(all_example_root + "A493");
 //                    final File file = new File(all_example_root + "A620");
 //                    final File file = new File(all_example_root + "A620");
-                    final File file = new File(all_example_root + "AT1");
+//                    final File file = new File(all_example_root + "AT1");
 //                    final File file = new File(all_example_root + "AT2");
                     run(
                         file,
                         null,
 //                        d_fixture_root + file.getName(),
-                        null,
-//                        p_fixture_root + file.getName(),
-//                         "gallagher_product_old"
-                         "gallagher_product"
+//                        null,
+                        p_fixture_root + file.getName(),
+                         "gallagher_product_old"
+//                         "gallagher_product"
 //                         "tata_old"
 //                         "tata"
                         // "powerset"
@@ -123,7 +126,7 @@ public class Driver {
                 }
                 case "other" -> {
 //                    final var b = Determiniser.powerset_with_reduction_and_gallagherproducttransitions_upstream(new Index(all_example_root + "/A0053", true));
-                    final var b = Determiniser.powerset_with_reduction_upstream(new Index(all_example_root + "/A0053", true));
+                    final var b = Determiniser.powerset_with_reduction_upstream(new Index(all_example_root + "/AEX2", false));
                     System.out.println(b.write());
                 }
             }
@@ -506,6 +509,7 @@ class Determiniser {
         final var det = new DeterminiserOpt("", dfta.parser.FTAParser.transitions, dfta.parser.FTAParser.finalStates, true, true,false);
         det.makeDfta();
         det.showStats(true);
+        det.printDfta(System.out, System.out);
 //        det.printDfta(System.out, System.out);
         final LinkedHashSet<LinkedHashSet<String>> second_Qd = det.qd;
         final ArrayList<dfta.PTransition> second_DELTAd = det.deltad;
@@ -513,11 +517,11 @@ class Determiniser {
         for (final dfta.PTransition x : second_DELTAd) {
             result_DELTAd.add(new PTransition(new Symb(x.f.fname, x.f.arity), x.q0, x.lhs));
         }
-        System.out.println("Started minimization.");
-        final long minimize_start_time = System.currentTimeMillis();
-        final var minimized = det.minimize();
-        final long minimize_end_time = System.currentTimeMillis();
-        System.out.println("Minimized states: " + minimized.size() + " Took: " +  ((minimize_end_time - minimize_start_time) / 1000.0) + "s");
+//        System.out.println("Started minimization.");
+//        final long minimize_start_time = System.currentTimeMillis();
+//        final var minimized = det.minimize();
+//        final long minimize_end_time = System.currentTimeMillis();
+//        System.out.println("Minimized states: " + minimized.size() + " Took: " +  ((minimize_end_time - minimize_start_time) / 1000.0) + "s");
 //        for (var x : minimized) {
 //            System.out.println(x.size());
 //            for (var y : x) {

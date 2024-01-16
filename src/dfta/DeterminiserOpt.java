@@ -128,6 +128,10 @@ public class DeterminiserOpt implements Determiniser {
 
       // Compute DFTA States - main loop
       do {
+//          System.out.println("Go: " + qdnew.size());
+//          for (var x : qdnew) {
+//            System.out.println("  - " + x);
+//          }
          qdnew1.clear();
          iter = idx.sigma.iterator();
          while (iter.hasNext()) {
@@ -244,8 +248,8 @@ public class DeterminiserOpt implements Determiniser {
                psi_tuple.add(j, new ArrayList<>(psi.get(f).get(j)));
                deltatuple.add(j, new BitSet(idx.delta.size()));
             }
-            // check for don't care arguments for functions of arity > 1
-            // remove such arguments from the psi-tuple
+            // Check for don't care arguments for functions of arity > 1
+            // remove such arguments from the psi-tuple.
             if (f.arity > 1 && dontCare) {
                dontCareArgs(psi_tuple, f);
             }
@@ -334,16 +338,9 @@ public class DeterminiserOpt implements Determiniser {
    }
 
    void dontCareArgs(ArrayList<ArrayList<BitSet>> psi_tuple, FuncSymb f) {
-      LinkedHashSet<LinkedHashSet<String>> qs;
-      ArrayList<BitSet> psiIntersectTuple = new ArrayList<>();
-      BitSet ts;
-      ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs;
-      LinkedHashSet<String> rhs;
-      BitSet temp;
-      BitSet deltaj;
-      ArrayList<LinkedHashSet<BitSet>> dontCares = new ArrayList<>();
-
-      // Intersect elements of psi-tuple and initialise don't-care array
+      final ArrayList<BitSet> psiIntersectTuple = new ArrayList<>();
+      final ArrayList<LinkedHashSet<BitSet>> dontCares = new ArrayList<>();
+      // Intersect elements of psi-tuple and initialise don't-care array.
       for (int i = 0; i < f.arity; i++) {
          if (!psi_tuple.get(i).isEmpty()) {
             psiIntersectTuple.add(i, intersect(psi_tuple.get(i)));
@@ -352,26 +349,14 @@ public class DeterminiserOpt implements Determiniser {
          }
          dontCares.add(i, new LinkedHashSet<>());
       }
-
       for (int i = 0; i < f.arity; i++) {
-         temp = psiIntersectTuple.get(i);
+         final BitSet temp = psiIntersectTuple.get(i);
          for (int j = 0; j < psi_tuple.get(i).size(); j++) {
-            deltaj = psi_tuple.get(i).get(j);
+            final BitSet deltaj = psi_tuple.get(i).get(j);
             psiIntersectTuple.set(i, deltaj);
-            rhs = rhsSet(deltaj);
-            if (rhs.equals(rhsSet(intersect(psiIntersectTuple)))) {
-               // generate a don't care transition
-               lhs = new ArrayList<>();
-               for (int k = 0; k < f.arity; k++) {
-                  lhs.add(k, new LinkedHashSet<>());
-                  if (k == i) {
-                     lhs.set(k, t_inverse_table.get(f).get(i).get(deltaj));
-                  }
-               }
-               deltad.add(new PTransition(f, rhs, lhs));
-               dontCares.get(i).add(deltaj);
-            } else if (f.arity == 2 && isSingleton(rhs) && intersectsAll(deltaj, i, f, psi_tuple)) {
-               lhs = new ArrayList<>();
+            final LinkedHashSet<String> rhs = rhsSet(deltaj);
+            if (rhs.equals(rhsSet(intersect(psiIntersectTuple))) || (f.arity == 2 && rhs.size() == 1 && intersectsAll(deltaj, i, f, psi_tuple))) {
+               final ArrayList<LinkedHashSet<LinkedHashSet<String>>> lhs = new ArrayList<>();
                for (int k = 0; k < f.arity; k++) {
                   lhs.add(k, new LinkedHashSet<>());
                   if (k == i) {
@@ -389,20 +374,15 @@ public class DeterminiserOpt implements Determiniser {
       }
    }
 
-   boolean isSingleton(LinkedHashSet<String> s) {
-      return s.size() == 1;
-   }
-
    boolean intersectsAll(BitSet deltaj, int j, FuncSymb f, ArrayList<ArrayList<BitSet>> psi_tuple) {
-      // check whether deltaj intersects with all members of all non-j elements of psi_tuple
-      BitSet ts;
+      // Check whether deltaj intersects with all members of all non-j elements of psi_tuple.
       for (int k = 0; k < f.arity; k++) {
          if (k != j) {
             if (psi_tuple.get(k).isEmpty()) {
                return false;
             }
             for (int l = 0; l < psi_tuple.get(k).size(); l++) {
-               ts = (BitSet) deltaj.clone();
+               final BitSet ts = (BitSet) deltaj.clone();
                ts.and(psi_tuple.get(k).get(l));
                if (ts.isEmpty()) {
                   return false;
@@ -459,9 +439,13 @@ public class DeterminiserOpt implements Determiniser {
          p.add(new LinkedHashSet<>(siginv.get(s)));
       }
       // Enqueue in K the first element from every class in P1
+      /// TODO why is this fast enough despite it not being a hashset and requiring an efficient contains check?
       ArrayList<LinkedHashSet<String>> k = new ArrayList<>();
+//      LinkedHashSet<LinkedHashSet<String>> k_visited = new LinkedHashSet<>();
       for (LinkedHashSet<LinkedHashSet<String>> pi : p) {
-         k.add(new ArrayList<>(pi).get(0));
+          final var value = new ArrayList<>(pi).get(0);
+          k.add(value);
+//          k_visited.add(value);
       }
       while (!k.isEmpty()) {
          // (a) Remove the first state q in K.
@@ -525,8 +509,11 @@ public class DeterminiserOpt implements Determiniser {
                                  oldEquivClass.removeAll(newEquivClass);
                                  ArrayList<LinkedHashSet<String>> newList = new ArrayList<>(newEquivClass);
                                  // Add to K the first element from every subset created 
-                                 if (!k.contains(newList.get(0))) {
-                                    k.add(newList.get(0));
+                                 final var value = newList.get(0);
+//                                 if (!k_visited.contains(value)) {
+                                 if (!k.contains(value)) {
+                                     k.add(value);
+//                                     k_visited.add(value);
                                  }
                               }
                            }

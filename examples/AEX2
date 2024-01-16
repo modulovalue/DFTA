@@ -1,0 +1,15 @@
+
+Final States list listlist.
+
+Transitions .
+a -> q.
+g(q) -> q.
+g(q) -> qg.
+g(qg) -> qf.
+f(q, q) -> q.
+
+
+
+
+
+

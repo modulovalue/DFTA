@@ -1,0 +1,67 @@
+{
+  "type": "P",
+  "version": 1,
+  "states": [
+    ["q", "'$any'"],
+    ["q", "qg", "'$any'"],
+    ["q", "qg", "qf", "'$any'"]
+  ],
+  "transitions": [
+    {
+      "arity": 0,
+      "name": "a",
+      "state": ["q", "'$any'"],
+      "args": [
+      ]
+    },
+    {
+      "arity": 1,
+      "name": "g",
+      "state": ["q", "qg", "'$any'"],
+      "args": [
+        [
+          ["q", "'$any'"]
+        ]
+      ]
+    },
+    {
+      "arity": 1,
+      "name": "g",
+      "state": ["q", "qg", "qf", "'$any'"],
+      "args": [
+        [
+          ["q", "qg", "'$any'"],
+          ["q", "qg", "qf", "'$any'"]
+        ]
+      ]
+    },
+    {
+      "arity": 2,
+      "name": "f",
+      "state": ["q", "'$any'"],
+      "args": [
+        [
+          ["q", "'$any'"],
+          ["q", "qg", "'$any'"],
+          ["q", "qg", "qf", "'$any'"]
+        ],
+        [
+        ]
+      ]
+    },
+    {
+      "arity": 2,
+      "name": "f",
+      "state": ["q", "'$any'"],
+      "args": [
+        [
+        ],
+        [
+          ["q", "'$any'"],
+          ["q", "qg", "'$any'"],
+          ["q", "qg", "qf", "'$any'"]
+        ]
+      ]
+    }
+  ]
+}
