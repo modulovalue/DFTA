@@ -301,10 +301,10 @@ public class DeterminiserOpt implements Determiniser {
    }
 
    LinkedHashSet<BitSet> t(int i, FuncSymb f, LinkedHashSet<LinkedHashSet<String>> qss) {
-      Iterator k = qss.iterator();
       LinkedHashSet<BitSet> result = new LinkedHashSet<>();
       LinkedHashSet<String> qs;
       BitSet h;
+      Iterator k = qss.iterator();
       while (k.hasNext()) {
          qs = (LinkedHashSet<String>) k.next();
          h = lhsSet(i, f, qs);
