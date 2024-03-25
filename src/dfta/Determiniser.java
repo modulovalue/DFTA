@@ -41,14 +41,17 @@ public class Determiniser {
         // region populate
         final ArrayList<LinkedHashSet<String>> Qd_temp = new ArrayList<>(Qd);
         final LinkedHashSet<LinkedHashSet<String>> Qd_sentinel = new LinkedHashSet<>();
+        // TODO • see which constants are affected by current.
         while (!Qd_temp.isEmpty()) {
             Qd_sentinel.clear();
+            // TODO • Qd_temp.
             for (final Symb f : index.b.inconstants) {
                 final ArrayList<LinkedHashMap<String, BitSet>> lhs_f_f = index.b.lhs_f.get(f);
                 final ArrayList<LinkedHashSet<BitSet>> Ψ_f = Ψ.get(f);
                 final ArrayList<LinkedHashSet<BitSet>> Φ_f = Φ.get(f);
                 for (int j = 0; j < f.arity; j++) {
                     final LinkedHashSet<BitSet> Φ_f_j = new LinkedHashSet<>();
+                    // TODO • lift this.
                     for (final LinkedHashSet<String> qs : Qd_temp) {
                         final BitSet h = or_all(new BitSet(index.a.Δ.size()), qs, lhs_f_f, j);
                         // Tabulate result for the t_inverse function.
